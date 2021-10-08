@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="tikfans.tikplus">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="com.android.vending.BILLING" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
+    <application
+        android:name=".MyChannelApplication"
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/ten_app"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme">
+        <activity android:name=".UnFollowUserActivity"></activity>
+        <activity
+            android:name=".ManHinhDauTienActivity"
+            android:label="@string/ten_app"
+            android:theme="@style/AppTheme.NoActionBar">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name=".MainActivity"
+            android:launchMode="singleInstance"
+            android:screenOrientation="portrait"
+            android:theme="@style/AppTheme.NoActionBar" />
+        <activity
+            android:name=".subviewlike.SubChiTietChienDichActivity"
+            android:theme="@style/AppTheme.NoActionBar" />
+        <activity
+            android:name=".MuaHangActivity"
+            android:label="@string/buy_coin"
+            android:theme="@style/AppTheme.NoActionBar" />
+
+        <service android:name=".service.FirebaseMessagingService">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+        <service android:name=".service.FirebaseInstanceIDService">
+            <intent-filter>
+                <action android:name="com.google.firebase.INSTANCE_ID_EVENT" />
+            </intent-filter>
+        </service>
+        <service
+            android:name=".service.DemNguocThoiGianServices"
+            android:enabled="true"
+            android:exported="false" />
+
+        <activity android:name=".XemQuangCaoActivity" />
+        <activity
+            android:name=".ManHinhDangNhapActivity"
+            android:theme="@style/AppTheme.NoActionBar" />
+        <activity
+            android:name=".ChonVideoActivity"
+            android:theme="@style/AppTheme.NoActionBar" />
+        <activity
+            android:name=".ManHinhFTUActivity"
+            android:theme="@style/AppTheme.NoActionBar" />
+        <activity
+            android:name=".MoiBanBeActivity"
+            android:theme="@style/AppTheme.NoActionBar" />
+        <activity
+            android:name=".CauHoiThuongGapActivity"
+            android:theme="@style/AppTheme.NoActionBar" />
+
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="@string/admob_app_id" />
+
+        <activity
+            android:name=".subviewlike.SubTaoChienDichActivity"
+            android:theme="@style/AppTheme.NoActionBar" />
+        <activity
+            android:name=".subviewlike.LikeTaoChienDichActivity"
+            android:theme="@style/AppTheme.NoActionBar" />
+        <activity
+            android:name=".subviewlike.LikeChiTietChienDichActivity"
+            android:theme="@style/AppTheme.NoActionBar" />
+    </application>
+
+</manifest>

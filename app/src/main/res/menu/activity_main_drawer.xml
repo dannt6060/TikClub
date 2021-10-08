@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:showIn="navigation_view">
+
+    <group android:checkableBehavior="single">
+
+        <item
+            android:id="@+id/nav_buy_coin"
+            android:icon="@drawable/ic_shopping_cart"
+            android:title="@string/buy_coin" />
+        <item
+            android:id="@+id/nav_vip_account"
+            android:icon="@drawable/ic_vip"
+            android:title="@string/vip_account" />
+
+        <item
+            android:id="@+id/nav_xem_quang_cao"
+            android:icon="@drawable/ic_money"
+            android:title="@string/xem_video_ads" />
+        <item
+            android:id="@+id/nav_share"
+            android:icon="@drawable/ic_menu_share"
+            android:title="@string/moi_ban_be" />
+
+    </group>
+
+    <item android:title="@string/other_apps">
+        <menu>
+            <item
+                android:id="@+id/nav_subchat"
+                android:icon="@drawable/ic_faq"
+                android:title="@string/subchat" />
+        </menu>
+    </item>
+
+    <item android:title="Communicate">
+        <menu>
+
+            <item
+                android:id="@+id/nav_faq"
+                android:icon="@drawable/ic_faq"
+                android:title="@string/faq" />
+            <item
+                android:id="@+id/nav_rate"
+                android:icon="@drawable/ic_rate"
+                android:title="@string/rate_app" />
+            <item
+                android:id="@+id/nav_send"
+                android:icon="@drawable/ic_menu_send"
+                android:title="@string/feedback" />
+        </menu>
+    </item>
+
+    <item android:title="Account">
+        <menu>
+            <item
+                android:id="@+id/nav_logout"
+                android:icon="@drawable/ic_person_outline_black_24dp"
+                android:title="Log out" />
+            <item
+                android:id="@+id/private_policy"
+                android:icon="@drawable/ic_privacy_policy"
+                android:title="Private Policy" />
+        </menu>
+    </item>
+
+</menu>

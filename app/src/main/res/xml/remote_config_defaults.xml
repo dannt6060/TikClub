@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<defaultsMap>
+    <entry>
+        <key>tikfans_sub_coin_rate</key>
+        <value>80</value>
+    </entry>
+    <entry>
+        <key>tikfans_sub_campaign_coin_cost</key>
+        <value>100</value>
+    </entry>
+    <entry>
+        <key>tikfans_package_app</key>
+        <value>tikfans.tikplus</value>
+    </entry>
+    <entry>
+        <key>tikfans_purchase_mini_new</key>
+        <value>1</value>
+    </entry>
+    <entry>
+        <key>tikfans_purchase_small_new</key>
+        <value>1</value>
+    </entry>
+    <entry>
+        <key>tikfans_purchase_lager_new</key>
+        <value>1</value>
+    </entry>
+    <entry>
+        <key>tikfans_purchase_huge_new</key>
+        <value>1</value>
+    </entry>
+    <entry>
+        <key>tikfans_purchase_max_new</key>
+        <value>1</value>
+    </entry>
+    <entry>
+        <key>tikfans_version</key>
+        <value>1</value>
+    </entry>
+    <entry>
+        <key>tikfans_video_reward</key>
+        <value>10</value>
+    </entry>
+    <entry>
+        <key>tikfans_limit_sub</key>
+        <value>20</value>
+    </entry>
+    <entry>
+        <key>tikfans_local_package_app</key>
+        <value>tikfans.tikplus</value>
+    </entry>
+
+    <entry>
+        <key>tikfans_rate_check_subscriber_by_quota</key>
+        <value>0</value>
+    </entry>
+
+    <entry>
+        <key>tikfans_rate_no_subscribe_and_like</key>
+        <value>10</value>
+    </entry>
+
+    <entry>
+        <key>tikfans_time_check_unsubscribe</key>
+        <value>1000</value>
+    </entry>
+
+    <entry>
+        <key>tikfans_limit_like</key>
+        <value>20</value>
+    </entry>
+    <entry>
+        <key>tikfans_rate_check_like_by_quota</key>
+        <value>0</value>
+    </entry>
+
+    <entry>
+        <key>tikfans_like_coin_rate</key>
+        <value>40</value>
+    </entry>
+    <entry>
+        <key>tikfans_like_campaign_coin_cost</key>
+        <value>50</value>
+    </entry>
+    <entry>
+        <key>tikfans_save_quota_enable</key>
+        <value>true</value>
+    </entry>
+    <entry>
+        <key>tikfans_save_max_quota_enable</key>
+        <value>true</value>
+    </entry>
+    <entry>
+        <key>tikfans_youtube_api_removed</key>
+        <value>true</value>
+    </entry>
+
+    <entry>
+        <key>tikfans_message_cost</key>
+        <value>10</value>
+    </entry>
+
+    <entry>
+        <key>tikfans_enable_promote_package</key>
+        <value>true</value>
+    </entry>
+
+    <entry>
+        <key>subchat_package</key>
+        <value>cptstudio.sub4sub</value>
+    </entry>
+</defaultsMap>

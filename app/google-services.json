@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "116681763681",
+    "firebase_url": "https://tikclub-8a0e6.firebaseio.com",
+    "project_id": "tikclub-8a0e6",
+    "storage_bucket": "tikclub-8a0e6.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:116681763681:android:7e2651d17e5f06caf8f320",
+        "android_client_info": {
+          "package_name": "tikfans.tikplus"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "116681763681-13mnfu1t16pjbi29740tffgbbaqpo3bd.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB-enkF0Q-o7oQ_s267tdTPtRc7YMGOvLM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "116681763681-13mnfu1t16pjbi29740tffgbbaqpo3bd.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

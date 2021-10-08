@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item
+        android:id="@+id/popup_menu_visit_tiktok_profiles"
+        android:orderInCategory="100"
+        android:title="@string/visit_tiktok_profiles"/>
+
+    <item
+        android:id="@+id/popup_menu_report_user"
+        android:orderInCategory="100"
+        android:title="@string/bao_cao_nguoi_dung"/>
+</menu>
