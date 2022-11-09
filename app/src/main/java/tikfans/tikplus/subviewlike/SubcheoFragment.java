@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Random;
 
 import android.annotation.SuppressLint;
+import android.app.Activity;
 import android.app.Dialog;
 import android.app.ProgressDialog;
 import android.content.ActivityNotFoundException;
@@ -44,11 +45,6 @@ import androidx.fragment.app.Fragment;
 
 import com.google.android.gms.ads.AdRequest;
 import com.google.android.gms.ads.AdView;
-import com.google.android.gms.ads.InterstitialAd;
-import com.google.android.gms.ads.MobileAds;
-import com.google.android.gms.ads.reward.RewardItem;
-import com.google.android.gms.ads.reward.RewardedVideoAd;
-import com.google.android.gms.ads.reward.RewardedVideoAdListener;
 import com.google.android.gms.auth.UserRecoverableAuthException;
 import com.google.android.gms.common.GoogleApiAvailability;
 import com.google.api.client.extensions.android.http.AndroidHttp;
@@ -76,11 +72,16 @@ import com.google.firebase.database.Transaction;
 import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.remoteconfig.FirebaseRemoteConfig;
 import com.squareup.picasso.Picasso;
-import com.unity3d.ads.IUnityAdsListener;
+import com.unity3d.ads.IUnityAdsInitializationListener;
+import com.unity3d.ads.IUnityAdsLoadListener;
+import com.unity3d.ads.IUnityAdsShowListener;
 import com.unity3d.ads.UnityAds;
+import com.unity3d.ads.UnityAdsShowOptions;
+import com.unity3d.services.banners.BannerErrorInfo;
+import com.unity3d.services.banners.BannerView;
 import com.unity3d.services.banners.IUnityBannerListener;
+import com.unity3d.services.banners.UnityBannerSize;
 import com.unity3d.services.banners.UnityBanners;
-import com.unity3d.services.banners.view.BannerPosition;
 
 import tikfans.tikplus.ItemURLTiktok;
 import tikfans.tikplus.MuaHangActivity;
@@ -106,20 +107,21 @@ import tikfans.tikplus.model.CountToday;
 import tikfans.tikplus.service.DemNguocThoiGianServices;
 
 import static android.app.Activity.RESULT_OK;
-import static com.unity3d.services.core.misc.Utilities.runOnUiThread;
-import static com.unity3d.services.core.properties.ClientProperties.getApplicationContext;
+import static com.unity3d.scar.adapter.common.Utils.runOnUiThread;
 import static tikfans.tikplus.util.AppUtil.SUB_CAMPAIGN_TYPE;
 import static tikfans.tikplus.util.AppUtil.isAdminVer;
 import static tikfans.tikplus.util.FirebaseUtil.CAMPAIGN_LAST_CHANGE_TIME_STAMP;
 import static tikfans.tikplus.util.FirebaseUtil.getCurrentUserRef;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
 
 public class SubcheoFragment extends Fragment
-        implements View.OnClickListener, RewardedVideoAdListener, IUnityAdsListener {
+        implements View.OnClickListener, IUnityAdsInitializationListener {
     // TODO: Rename parameter arguments, choose names that match
     // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
     private static final String ARG_PARAM1 = "param1";
@@ -137,6 +139,7 @@ public class SubcheoFragment extends Fragment
     //for overlay
     private static final int CODE_DRAW_OVER_OTHER_APP_PERMISSION = 2084;
     private static final int CODE_REWARD_VIDEO_ACTIVITY = 3000;
+    private static final int CODE_REQUEST_CHECK_UNFOLLOW = 4000;
 
     private OnFragmentInteractionListener mListener;
 
@@ -165,10 +168,8 @@ public class SubcheoFragment extends Fragment
 
     private CountDownTimer mCountDownTimer;
     private int timerCount = 10;
-    private RewardedVideoAd mRewardedVideoAd;
     private Context mContext;
     private AdView mAdView;
-    private InterstitialAd mInterstitialAd;
     private String myUserName;
     private long mLastTimeQuery = 0;
     private boolean isGotAllSubscribedList = false;
@@ -180,12 +181,113 @@ public class SubcheoFragment extends Fragment
     private String unityGameID = "3737693";
     private boolean testMode = false;
     private String placementId = "rewardedVideo";
-    final UnityAdsListener myAdsListener = new UnityAdsListener();
     private View bannerView;
     private int loadBannerViewTryCount = 0;
     private boolean isNeedCheckFollowByAPI = false;
     private boolean isCheckedFollowByWebviewOrAPI = false;
     private boolean isCheckedFailByWebviewOrAPI = false;
+
+    @Override
+    public void onInitializationComplete() {
+        Log.v("UnityAdsExample", "onInitializationComplete: ");
+        UnityAds.load(placementId, loadListener);
+    }
+
+    @Override
+    public void onInitializationFailed(UnityAds.UnityAdsInitializationError error, String message) {
+        Log.e("UnityAdsExample", "Unity Ads initialization failed with error: [" + error + "] " + message);
+    }
+
+    private IUnityAdsLoadListener loadListener = new IUnityAdsLoadListener() {
+        @Override
+        public void onUnityAdsAdLoaded(String placementId) {
+            isUnityAdsLoaded = true;
+        }
+
+        @Override
+        public void onUnityAdsFailedToLoad(String placementId, UnityAds.UnityAdsLoadError error, String message) {
+            Log.e("UnityAdsExample", "Unity Ads failed to load ad for " + placementId + " with error: [" + error + "] " + message);
+        }
+    };
+
+    private IUnityAdsShowListener showListener = new IUnityAdsShowListener() {
+        @Override
+        public void onUnityAdsShowFailure(String placementId, UnityAds.UnityAdsShowError error, String message) {
+            UnityAds.load(placementId, loadListener);
+            Log.e("UnityAdsExample", "Unity Ads failed to show ad for " + placementId + " with error: [" + error + "] " + message);
+        }
+
+        @Override
+        public void onUnityAdsShowStart(String placementId) {
+            Log.v("UnityAdsExample", "onUnityAdsShowStart: " + placementId);
+        }
+
+        @Override
+        public void onUnityAdsShowClick(String placementId) {
+            Log.v("UnityAdsExample", "onUnityAdsShowClick: " + placementId);
+        }
+
+        @Override
+        public void onUnityAdsShowComplete(String placementId, UnityAds.UnityAdsShowCompletionState state) {
+            UnityAds.load(placementId, loadListener);
+            Log.v("UnityAdsExample", "onUnityAdsShowComplete: " + placementId);
+            if (state.equals(UnityAds.UnityAdsShowCompletionState.COMPLETED)) {
+                onRewarded();
+            } else {
+                // Do not reward the user for skipping the ad
+            }
+        }
+    };
+
+    boolean isUnityAdsLoaded = false;
+    public void DisplayRewardedAd() {
+        if (isUnityAdsLoaded) {
+            UnityAds.show(getActivity(), placementId, new UnityAdsShowOptions(), showListener);
+        } else {
+            if (UnityAds.isInitialized()) {
+                UnityAds.load(placementId, loadListener);
+            }
+        }
+    }
+
+    //for banner
+    // Listener for banner events:
+    private BannerView.IListener bannerListener = new BannerView.IListener() {
+        @Override
+        public void onBannerLoaded(BannerView bannerAdView) {
+            // Called when the banner is loaded.
+            Log.v("UnityAdsExample", "onBannerLoaded: " + bannerAdView.getPlacementId());
+            // Enable the correct button to hide the ad
+            BannerView bottomBanner = new BannerView(getActivity(), "banner", new UnityBannerSize(320, 50));
+            // Set the listener for banner lifecycle events:
+            bottomBanner.setListener(bannerListener);
+            ViewGroup bottomBannerView = ((ViewGroup) rootView.findViewById(R.id.adView));
+
+            if (bottomBanner.getParent() != null) {
+                ((ViewGroup) bottomBanner.getParent()).removeView(bottomBanner);
+            }
+            ((ViewGroup) rootView.findViewById(R.id.adView)).addView(bottomBanner);
+            Log.d("Khang", "onUnityBannerLoaded: " + placementId);
+        }
+
+        @Override
+        public void onBannerFailedToLoad(BannerView bannerAdView, BannerErrorInfo errorInfo) {
+            Log.e("UnityAdsExample", "Unity Ads failed to load banner for " + bannerAdView.getPlacementId() + " with error: [" + errorInfo.errorCode + "] " + errorInfo.errorMessage);
+            // Note that the BannerErrorInfo object can indicate a no fill (see API documentation).
+        }
+
+        @Override
+        public void onBannerClick(BannerView bannerAdView) {
+            // Called when a banner is clicked.
+            Log.v("UnityAdsExample", "onBannerClick: " + bannerAdView.getPlacementId());
+        }
+
+        @Override
+        public void onBannerLeftApplication(BannerView bannerAdView) {
+            // Called when the banner links out of the application.
+            Log.v("UnityAdsExample", "onBannerLeftApplication: " + bannerAdView.getPlacementId());
+        }
+    };
 
     public SubcheoFragment() {
         // Required empty public constructor
@@ -201,12 +303,6 @@ public class SubcheoFragment extends Fragment
         }
         mContext = getContext();
 //        mCampaignsList = new ArrayList<>();
-        MobileAds.initialize(mContext, getString(R.string.abmob_interstitial_ad_unit_id));
-        mRewardedVideoAd = MobileAds.getRewardedVideoAdInstance(getActivity().getApplicationContext());
-        mRewardedVideoAd.setRewardedVideoAdListener(this);
-        mInterstitialAd = new InterstitialAd(mContext);
-        mInterstitialAd.setAdUnitId(getString(R.string.abmob_interstitial_ad_unit_id));
-        mInterstitialAd.loadAd(new AdRequest.Builder().build());
 
         myUserName = PreferenceUtil.getStringPref(PreferenceUtil.TIKTOK_USER_NAME, "");
 
@@ -239,19 +335,14 @@ public class SubcheoFragment extends Fragment
         mBtnEarnCoinNoChannel = rootView.findViewById(R.id.btn_earn_coin_no_channel);
         mBtnReload = rootView.findViewById(R.id.btn_reload);
 
-        //for checking follow by api;
-        getUserInfobyAPI();
-
         //for checking follow by webview
         mWebView = rootView.findViewById(R.id.webView);
         mWebView.setVisibility(View.INVISIBLE);
-        tiktokWebClient = new TiktokWebClient(getApplicationContext(), mWebView);
+        tiktokWebClient = new TiktokWebClient(getContext(), mWebView);
         getUserInfoByWebView(false);
-
 
         mAdView = rootView.findViewById(R.id.adView);
         AdRequest adRequest = new AdRequest.Builder().build();
-        mAdView.loadAd(adRequest);
 
         //unity
 //        if (bannerView == null && !MyChannelApplication.isVipAccount) {
@@ -261,7 +352,7 @@ public class SubcheoFragment extends Fragment
         // Initialize the SDK:
 //        final IUnityBannerListener myBannerListener = new UnityBannerListener();
 //        UnityBanners.setBannerListener(myBannerListener);
-        UnityAds.initialize(getActivity(), unityGameID, myAdsListener, testMode);
+        UnityAds.initialize(getContext(), unityGameID, testMode, this);
 
         mCampaignHeaderLayout.setOnClickListener(this);
         mBtnLike.setOnClickListener(this);
@@ -303,6 +394,7 @@ public class SubcheoFragment extends Fragment
                     if (mUnFollowUSerArrayList.size() > 0) {
                         Intent i = new Intent(getActivity(), UnFollowUserActivity.class);
                         i.putExtra(AppUtil.UNFOLLOW_USER_LIST_EXTRA, mUnFollowUSerArrayList);
+                        i.putExtra(AppUtil.UNFOLLOW_CHECK_ALL_LIST_USER_NAME, false);
                         startActivity(i);
                     }
                     if (dummyCheckingSubscriberDialog != null && dummyCheckingSubscriberDialog.isShowing()) {
@@ -319,127 +411,11 @@ public class SubcheoFragment extends Fragment
         getAllSubscribedList();
 
 
-        loadRewardedVideoAd();
 //        if (mNumberSubToday < FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.SUBCHAT_LIMIT_SUB)) {
 //            retryQueryDatabase();
 //        }
 
         return rootView;
-    }
-
-    @Override
-    public void onUnityAdsReady(String s) {
-
-    }
-
-    @Override
-    public void onUnityAdsStart(String s) {
-
-    }
-
-    @Override
-    public void onUnityAdsFinish(String s, UnityAds.FinishState finishState) {
-
-    }
-
-    @Override
-    public void onUnityAdsError(UnityAds.UnityAdsError unityAdsError, String s) {
-
-    }
-
-    // Implement the banner listener interface methods:
-    private class UnityBannerListener implements IUnityBannerListener {
-
-        @Override
-        public void onUnityBannerLoaded(String placementId, View view) {
-            // When the banner content loads, add it to the view hierarchy:
-            try {
-                bannerView = view;
-                if (view.getParent() != null) {
-                    ((ViewGroup) view.getParent()).removeView(view);
-                }
-                ((ViewGroup) rootView.findViewById(R.id.adView)).addView(view);
-                Log.d("Khang", "onUnityBannerLoaded: " + placementId);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-
-        @Override
-        public void onUnityBannerUnloaded(String placementId) {
-            // When the banner’s no longer in use, remove it from the view hierarchy:
-            Log.d("Khang", "onUnityBannerUnloaded: " + placementId);
-            bannerView = null;
-        }
-
-        @Override
-        public void onUnityBannerShow(String placementId) {
-            // Called when the banner is first visible to the user.
-            Log.d("Khang", "onUnityBannerShow: " + placementId);
-        }
-
-        @Override
-        public void onUnityBannerClick(String placementId) {
-            // Called when the banner is clicked.
-            Log.d("Khang", "onUnityBannerClick: " + placementId);
-        }
-
-        @Override
-        public void onUnityBannerHide(String placementId) {
-            // Called when the banner is hidden from the user.
-            Log.d("Khang", "onUnityBannerHide: " + placementId);
-        }
-
-        @Override
-        public void onUnityBannerError(String message) {
-            Log.d("Khang", "onUnityBannerError: " + message);
-            if (bannerView == null && loadBannerViewTryCount < 10 && !MyChannelApplication.isVipAccount) {
-                new Handler().postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-                        UnityBanners.setBannerPosition(BannerPosition.BOTTOM_CENTER);
-                        UnityBanners.loadBanner(getActivity(), "banner");
-                        loadBannerViewTryCount++;
-                    }
-                }, 1500);
-
-            }
-            // Called when an error occurred, and the banner failed to load or show.
-        }
-    }
-
-    private class UnityAdsListener implements IUnityAdsListener {
-
-        public void onUnityAdsReady(String placementId) {
-            // Implement functionality for an ad being ready to show.
-//            Log.d("Khang", "onUnityAdsReady: " + placementId);
-        }
-
-        @Override
-        public void onUnityAdsStart(String placementId) {
-            // Implement functionality for a user starting to watch an ad.
-//            Log.d("Khang", "onUnityAdsStart: " + placementId);
-        }
-
-        @Override
-        public void onUnityAdsFinish(String placementId, UnityAds.FinishState finishState) {
-            // Implement conditional logic for each ad completion status:
-//            Log.d("Khang", "onUnityAdsFinish : " + placementId + " / " + finishState);
-            if (finishState == UnityAds.FinishState.COMPLETED) {
-                onRewarded();
-                // Reward the user for watching the ad to completion.
-            } else if (finishState == UnityAds.FinishState.SKIPPED) {
-                // Do not reward the user for skipping the ad.
-            } else if (finishState == UnityAds.FinishState.ERROR) {
-                // Log an error.
-            }
-        }
-
-        @Override
-        public void onUnityAdsError(UnityAds.UnityAdsError error, String message) {
-            // Implement functionality for a Unity Ads service error occurring.
-//            Log.d("Khang", "onUnityAdsError: " + message + " / " + error.toString());
-        }
     }
 
     private void getTodaySubCount() {
@@ -483,9 +459,18 @@ public class SubcheoFragment extends Fragment
     ItemURLTiktok.ClientTikTokListener listenerForLoggedInUser = new ItemURLTiktok.ClientTikTokListener() {
         @Override
         public void onLoading() {
-            if (checkingFollowDialog != null && !checkingFollowDialog.isShowing()) {
-                checkingFollowDialog.show();
-            }
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        if (checkingFollowDialog != null && !checkingFollowDialog.isShowing()) {
+                            checkingFollowDialog.show();
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            });
         }
 
         @Override
@@ -626,6 +611,102 @@ public class SubcheoFragment extends Fragment
     private int myOldFollowingbyAPI = -1;
     private String mUserLink;
 
+    private void getUserInfoToUpdateCampaignByWebView(String mUserName) {
+        if (isGettingUserInfoByWebView) return;
+        final boolean[] isLoaded = {false}; // haom onloadFinish bi goi 2 lan, chi xu ly o lan goi dau tien
+        try {
+            showProgressDialog();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        String userLink = AppUtil.TIKTOK_PREFIX_LINK + mUserName;
+        ItemURLTiktok url = new ItemURLTiktok(userLink, null);
+        if (url.getTYPE_URL() == ItemURLTiktok.URL_TYPE_USER) {
+            Log.e("khangcheckfollow", "getUserInfoByWebView: user link " + url.getBaseUrl());
+            tiktokWebClient.load(url.getBaseUrl());
+            tiktokWebClient.setListener(new TiktokWebClient.ClientListener() {
+                @Override
+                public void onLoading() {
+                    Log.e("khang", "onLoading: ");
+                    try {
+                        hideProgressDialog();
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+
+                @Override
+                public void onLoadFinish(Document document, String url) {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            try {
+                                hideProgressDialog();
+                                if (isLoaded[0]) return;
+                                isLoaded[0] = true;
+                                Log.e("khang", "getUserInfoByWebView onLoadFinish: " + url);
+                                String imageUrl = "";
+                                Elements findImgUrlElementList = document.getElementsByTag("meta");
+                                for (Element e:findImgUrlElementList) {
+                                    String content = e.attributes().get("content");
+                                    if (content.contains("expires=")) {
+                                        imageUrl = content;
+                                    }
+                                    if (content.contains("/video/")) {
+                                        break;
+                                    }
+                                }
+
+                                Log.e("khang", "onLoadFinish: Avatar Url: " + imageUrl);
+                                if (!imageUrl.equals("")) {
+                                    Log.d("khang", "onReceivedUserInfo img: " + imageUrl);
+                                    if (mSubCampaign != null && mSubCampaign.getKey() != null && mSubCampaign.getKey().equals(mCheckingImgbyKey)) {
+                                        Picasso.get().load(imageUrl).transform(new CircleTransform())
+                                                .into(mUserImg);
+                                        final DatabaseReference campaignCurrentRef = FirebaseUtil.getSubCampaignsRef().child(mSubCampaign.getKey());
+                                        String finalImg = imageUrl;
+                                        campaignCurrentRef.runTransaction(new Transaction.Handler() {
+                                            @NonNull
+                                            @Override
+                                            public Transaction.Result doTransaction(@NonNull MutableData mutableData) {
+                                                SubCampaign currentCampaign = mutableData.getValue(SubCampaign.class);
+                                                if (currentCampaign == null) {
+                                                    return Transaction.success(mutableData);
+                                                    //                    subCoin = 0;
+                                                }
+
+                                                currentCampaign.setUserImg(finalImg);
+
+                                                // Set value and report transaction success
+                                                mutableData.setValue(currentCampaign);
+                                                return Transaction.success(mutableData);
+                                            }
+
+                                            @Override
+                                            public void onComplete(@Nullable DatabaseError databaseError, boolean b, @Nullable DataSnapshot dataSnapshot) {
+
+                                            }
+                                        });
+                                    } else {
+                                        Log.d("khang", "onReceivedUserInfo img: do not match with current campaign" + imageUrl);
+                                    }
+
+                                }
+
+                                mWebView.setVisibility(View.INVISIBLE);
+                            } catch (Exception e) {
+                                Log.e("khang", e.toString());
+                            }
+
+                        }
+                    });
+                }
+            });
+        }
+    }
+
+    boolean isGettingUserInfoByWebView = false;
+
     private void getUserInfoByWebView(boolean isNeedCheckFollow) {
         final boolean[] isLoaded = {false}; // haom onloadFinish bi goi 2 lan, chi xu ly o lan goi dau tien
         try {
@@ -644,6 +725,7 @@ public class SubcheoFragment extends Fragment
             tiktokWebClient.setListener(new TiktokWebClient.ClientListener() {
                 @Override
                 public void onLoading() {
+                    isGettingUserInfoByWebView = true;
                     Log.e("khang", "onLoading: ");
                     try {
                         if (checkingFollowDialog != null) {
@@ -691,52 +773,48 @@ public class SubcheoFragment extends Fragment
                                 isCheckedFailByWebviewOrAPI = true;
                             }
                             Log.e("khangcheckfollow", "getUserInfoByWebView onLoadFinish: " + url);
-                            Elements user = document.getElementsByClass("user-page");
-                            if (user.size() > 0) {
-                                String following = "-1";
+                            int followingInt = -1;
+                            try {
+                                JSONObject user;
+                                String userName;
+                                user = new JSONObject(document.getElementById("SIGI_STATE").data()).getJSONObject("MobileUserModule").getJSONObject("stats");
+                                userName = user.names().getString(0);
+                                followingInt = user.getJSONObject(userName).getInt("followingCount");
+                                Log.e("khangcheckfollow", "getUserInfoByWebView case1: " + userName + " following: " + followingInt);
+                            } catch (Exception e) {
+                                e.printStackTrace();
                                 try {
-                                    Element userFollowing = user.get(0).getElementsByTag("ul").get(0)
-                                            .getElementsByTag("li").get(0)
-                                            .getElementsByTag("strong").get(0);
-                                    following = userFollowing.text();
-                                } catch (Exception e) {
-                                    Log.d("khang", "webview get userFollowing error: " + e.getMessage());
-                                    following = "-1";
-                                }
+                                    Element userFollowing = document.getElementsByClass("tiktok-19hl5wo-StrongNumber e1s627be5").get(0);
+                                    String following = userFollowing.text();
+                                    followingInt = AppUtil.convertStringToInteger(following);
+                                    Log.e("khangcheckfollow", "getUserInfoByWebView case2: " + " following: " + followingInt);
 
-                                int followingInt = AppUtil.convertStringToInteger(following);
-                                checkUnfollow();
-                                Log.e("khangcheckfollow", "getUserInfoByWebView followingInt: " + followingInt);
-                                if (followingInt > 10000) {//dang follow qua nhieu tai khoan
-                                    mSubCampaign = null;
-                                    mNoPageLayout.setVisibility(View.VISIBLE);
-                                    mPageContentLayout.setVisibility(View.INVISIBLE);
-                                    mTxtChannel.setText(getString(R.string.subscribe_limitation));
-                                    mBtnReload.setVisibility(View.GONE);
-                                    mTxtChannelExtra.setText(getString(R.string.subscribe_limitation_extra));
-                                }
+                                } catch (Exception e2) {
+                                    e2.printStackTrace();
+                                    Log.e("khangcheckfollow", "getUserInfoByWebView failed followingInt: " + followingInt);
 
-                                if (isNeedCheckFollow) {
-                                    myFollowingByWebView = AppUtil.convertStringToInteger(following);
-                                    checkFollow();
-                                    myOldFollowingByWebView = AppUtil.convertStringToInteger(following);
-                                } else {
-                                    myOldFollowingByWebView = AppUtil.convertStringToInteger(following);
-                                    myFollowingByWebView = AppUtil.convertStringToInteger(following);
-                                }
-                            } else {
-                                Log.d("khangcheckfollow", "webview: load faild caused by can not get user elelemnt");
-                                if (isCheckedFailByWebviewOrAPI) { //check faild
-                                    if (isNeedCheckFollow) {
-                                        myFollowingByWebView = -1; // bang 0 mac dich la da tha tim
-                                        checkFollow();
-                                    }
-                                    return;
-                                } else {
-                                    isCheckedFailByWebviewOrAPI = true;
                                 }
                             }
+                            checkUnfollow();
+                            if (followingInt > 10000) {//dang follow qua nhieu tai khoan
+                                mSubCampaign = null;
+                                mNoPageLayout.setVisibility(View.VISIBLE);
+                                mPageContentLayout.setVisibility(View.INVISIBLE);
+                                mTxtChannel.setText(getString(R.string.subscribe_limitation));
+                                mBtnReload.setVisibility(View.GONE);
+                                mTxtChannelExtra.setText(getString(R.string.subscribe_limitation_extra));
+                            }
+
+                            if (isNeedCheckFollow) {
+                                myFollowingByWebView = followingInt;
+                                checkFollow();
+                                myOldFollowingByWebView = followingInt;
+                            } else {
+                                myOldFollowingByWebView = followingInt;
+                                myFollowingByWebView = followingInt;
+                            }
                             mWebView.setVisibility(View.INVISIBLE);
+                            isGettingUserInfoByWebView = false;
                         }
                     });
 
@@ -782,6 +860,10 @@ public class SubcheoFragment extends Fragment
                             }).setNegativeButton(getString(R.string.xem_cai_khac), new DialogInterface.OnClickListener() {
                                 @Override
                                 public void onClick(DialogInterface dialog, int which) {
+                                    Log.d("khang", "currentTime: " + SecureDate.getInstance().getDate().getTime() + " / " + (long) mSubCampaign.getCreTime() + " dif: " + (SecureDate.getInstance().getDate().getTime() - (long) mSubCampaign.getCreTime()));
+                                    if (SecureDate.getInstance().getDate().getTime() - (long) mSubCampaign.getCreTime() > (long) 15 * 24 * 60 * 60 * 1000) {
+                                        skipNotFoundCampaign(mSubCampaign);
+                                    }
                                     queryDatabase();
                                     dialog.dismiss();
                                 }
@@ -800,7 +882,6 @@ public class SubcheoFragment extends Fragment
     public void onResume() {
         super.onResume();
         Log.d("khang", "sub4subFragment onResume: " + isWaitingForSub);
-        mRewardedVideoAd.resume(getContext());
 
         try {
             Intent myService = new Intent(getActivity(), DemNguocThoiGianServices.class);
@@ -829,9 +910,11 @@ public class SubcheoFragment extends Fragment
                             }).setNegativeButton(getString(R.string.kenh_khong_tim_thay), new DialogInterface.OnClickListener() {
                                 @Override
                                 public void onClick(DialogInterface dialog, int which) {
-                                    DeleteChannelNotFoundTask deleteChannelNotFoundTask = new DeleteChannelNotFoundTask(MyChannelApplication.credential);
-                                    deleteChannelNotFoundTask.execute();
                                     dialog.dismiss();
+                                    if (SecureDate.getInstance().getDate().getTime() - (long) mSubCampaign.getCreTime() > (long) 15 * 24 * 60 * 60 * 1000) {
+                                        skipNotFoundCampaign(mSubCampaign);
+                                    }
+                                    queryDatabase();
                                 }
                             })
                             .create();
@@ -843,7 +926,7 @@ public class SubcheoFragment extends Fragment
                 isCheckedFollowByWebviewOrAPI = false;
                 isCheckedFailByWebviewOrAPI = false;
                 isNeedCheckFollowByAPI = true;
-                getUserInfobyAPI();
+                //getUserInfobyAPI();
                 getUserInfoByWebView(true);
             }
         }
@@ -852,6 +935,39 @@ public class SubcheoFragment extends Fragment
             removedBannerAds();
         }
 
+    }
+
+    private void skipNotFoundCampaign(SubCampaign subCampaign) {
+        Log.d("khang", "khong tim thay kenh");
+        //to campaign
+        DatabaseReference currentCampaignRef = FirebaseUtil.getSubCampaignsRef().child(subCampaign.getKey());
+        currentCampaignRef.runTransaction(new Transaction.Handler() {
+            @Override
+            public Transaction.Result doTransaction(MutableData mutableData) {
+                SubCampaign currentCampaign = mutableData.getValue(SubCampaign.class);
+                if (currentCampaign == null) {
+                    return Transaction.success(mutableData);
+                    //                    subCoin = 0;
+                }
+
+                currentCampaign.setCurSub(currentCampaign.getCurSub() + 1);
+                currentCampaign.setLasTime(ServerValue.TIMESTAMP);
+                if (currentCampaign.getCurSub() >= currentCampaign.getOrder()) {
+                    currentCampaign.setFinTime(ServerValue.TIMESTAMP);
+                    currentCampaign.setIp(false);
+                    currentCampaign.setLasTime(Long.MAX_VALUE);
+                }
+                // Set value and report transaction success
+                mutableData.setValue(currentCampaign);
+                return Transaction.success(mutableData);
+            }
+
+            @Override
+            public void onComplete(DatabaseError databaseError, boolean b,
+                                   DataSnapshot dataSnapshot) {
+                // Transaction completed
+            }
+        });
     }
 
     private String mSubscribedListString = "";
@@ -1008,23 +1124,43 @@ public class SubcheoFragment extends Fragment
         if (mChannelSubList == null || mChannelSubList.size() <= 1 || !isGotAllSubscribedList || isCheckedUnFollow) {
             return;
         }
-        isCheckedUnFollow = true;
+
         int numberofUnFollow = 0;
         if (myFollowingByApi >= 0) {
             numberofUnFollow = mChannelSubList.size() - 1 - myFollowingByApi;
+            isCheckedUnFollow = true;
         }
         if (myFollowingByWebView >= 0) {
             numberofUnFollow = mChannelSubList.size() - 1 - myFollowingByWebView;
+            isCheckedUnFollow = true;
         }
-        if (numberofUnFollow > 0) {
-            new AlertDialog.Builder(mContext)
-                    .setTitle(getString(R.string.unsubs_warning))
-                    .setMessage(String.format(getString(R.string.unsubs_warning_message), numberofUnFollow))
-                    .setPositiveButton(getString(R.string.agree), new DialogInterface.OnClickListener() {
-                        public void onClick(DialogInterface dialog, int which) {
-                            dialog.dismiss();
-                        }
-                    }).show();
+        if (numberofUnFollow > 10) {
+            Log.d("khang", "numberOfUnfollow: " + numberofUnFollow);
+            try {
+//                new AlertDialog.Builder(mContext)
+//                        .setTitle(getString(R.string.unsubs_warning))
+//                        .setMessage(String.format(getString(R.string.unsubs_warning_message), numberofUnFollow))
+//                        .setPositiveButton(getString(R.string.agree), new DialogInterface.OnClickListener() {
+//                            public void onClick(DialogInterface dialog, int which) {
+//                                dialog.dismiss();
+//                            }
+//                        }).show();
+                if (mChannelSubList.size() > 0) {
+                    mUnFollowUSerArrayList = new ArrayList<>();
+                    for (String userName : mChannelSubList) {
+                        mUnFollowUSerArrayList.add(0, new UnFollowUSer(userName, null, null));
+                    }
+                    Intent i = new Intent(getActivity(), UnFollowUserActivity.class);
+                    i.putExtra(AppUtil.UNFOLLOW_USER_LIST_EXTRA, mUnFollowUSerArrayList);
+                    i.putExtra(AppUtil.UNFOLLOW_CHECK_ALL_LIST_USER_NAME, true);
+                    startActivityForResult(i, CODE_REQUEST_CHECK_UNFOLLOW);
+                    if (dummyCheckingSubscriberDialog != null && dummyCheckingSubscriberDialog.isShowing()) {
+                        dummyCheckingSubscriberDialog.dismiss();
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -1060,13 +1196,11 @@ public class SubcheoFragment extends Fragment
 
     @Override
     public void onPause() {
-        mRewardedVideoAd.pause(getContext());
         super.onPause();
     }
 
     @Override
     public void onDestroy() {
-        mRewardedVideoAd.destroy(getContext());
         if (mCountDownTimer != null) {
             mCountDownTimer.cancel();
             mCountDownTimer = null;
@@ -1184,17 +1318,8 @@ public class SubcheoFragment extends Fragment
 
     private void showAds() {
         Log.d("Khang", "showads");
-        if (mRewardedVideoAd.isLoaded()) {
-            Log.d("Khang", "show adsmob");
-            mRewardedVideoAd.show();
-        } else {
-            Log.d("Khang", "show unity ads");
-            if (UnityAds.isReady(placementId)) {
-                UnityAds.show(getActivity(), placementId);
-            } else {
-                UnityAds.initialize(getActivity(), unityGameID, myAdsListener, testMode);
-            }
-        }
+        Log.d("Khang", "show unity ads");
+        DisplayRewardedAd();
     }
 
 
@@ -1229,7 +1354,44 @@ public class SubcheoFragment extends Fragment
 
             mUserImg.setVisibility(View.VISIBLE);
             mUserNameTextView.setVisibility(View.VISIBLE);
-            //old API
+//            //old API
+//            try {
+//                if (mSubCampaign.getUserImg() != null && !mSubCampaign.getUserImg().equals("") && !mSubCampaign.getUserImg().equals("NONE")) {
+//                    Picasso.get().load(mSubCampaign.getUserImg()).transform(new CircleTransform())
+//                            .into(mUserImg);
+//                    String img = mSubCampaign.getUserImg();
+//                    try {
+//                        String expiredTime = img.substring(img.lastIndexOf("expires=") + 8, img.lastIndexOf("expires=") + 18);
+//                        Log.d("khang", "expiredTime: " + expiredTime + " / " + System.currentTimeMillis());
+//
+//                        long l = Long.parseLong(expiredTime);
+//                        if (l < System.currentTimeMillis() / 1000) {
+//                            Log.d("khang", "da het han" + expiredTime);
+//                            if (!mIsCheckingImg) {
+//                                mCheckingImgbyKey = mSubCampaign.getKey();
+//                            }
+//                            getUserInfoToUpdateCampaignByWebView(mSubCampaign.getUserName());
+//                            String link = AppUtil.TIKTOK_PREFIX_LINK + mSubCampaign.getUserName();
+//                            ItemURLTiktok url = new ItemURLTiktok(link, listenerForUpdateCurrentCampaign);
+//                            url.getUserInfo();
+//                        } else {
+//                            Log.d("khang", "chua het han" + expiredTime);
+//                        }
+//                    } catch (Exception e) {
+//                        e.printStackTrace();
+//                    }
+//                } else {
+//                    if (!mIsCheckingImg) {
+//                        mCheckingImgbyKey = mSubCampaign.getKey();
+//                    }
+//                    String link = AppUtil.TIKTOK_PREFIX_LINK + mSubCampaign.getUserName();
+//                    ItemURLTiktok url = new ItemURLTiktok(link, listenerForUpdateCurrentCampaign);
+//                    url.getUserInfo();
+//                }
+//            } catch (IllegalArgumentException e) {
+//                e.printStackTrace();
+//            }
+            //by webview
             try {
                 if (mSubCampaign.getUserImg() != null && !mSubCampaign.getUserImg().equals("") && !mSubCampaign.getUserImg().equals("NONE")) {
                     Picasso.get().load(mSubCampaign.getUserImg()).transform(new CircleTransform())
@@ -1245,9 +1407,7 @@ public class SubcheoFragment extends Fragment
                             if (!mIsCheckingImg) {
                                 mCheckingImgbyKey = mSubCampaign.getKey();
                             }
-                            String link = AppUtil.TIKTOK_PREFIX_LINK + mSubCampaign.getUserName();
-                            ItemURLTiktok url = new ItemURLTiktok(link, listenerForUpdateCurrentCampaign);
-                            url.getUserInfo();
+                            getUserInfoToUpdateCampaignByWebView(mSubCampaign.getUserName());
                         } else {
                             Log.d("khang", "chua het han" + expiredTime);
                         }
@@ -1258,13 +1418,12 @@ public class SubcheoFragment extends Fragment
                     if (!mIsCheckingImg) {
                         mCheckingImgbyKey = mSubCampaign.getKey();
                     }
-                    String link = AppUtil.TIKTOK_PREFIX_LINK + mSubCampaign.getUserName();
-                    ItemURLTiktok url = new ItemURLTiktok(link, listenerForUpdateCurrentCampaign);
-                    url.getUserInfo();
+                    getUserInfoToUpdateCampaignByWebView(mSubCampaign.getUserName());
                 }
             } catch (IllegalArgumentException e) {
                 e.printStackTrace();
             }
+
             mUserNameTextView.setText("@" + mSubCampaign.getUserName());
 
         } catch (IllegalStateException e) {
@@ -1375,7 +1534,7 @@ public class SubcheoFragment extends Fragment
                             mInstructionLayout.setVisibility(View.VISIBLE);
                             Random r = new Random();
                             int i1 = r.nextInt(99);
-                            if (i1 < 50 && !MyChannelApplication.isVipAccount  && countToday.getCount() > 5) {
+                            if (i1 < 50 && !MyChannelApplication.isVipAccount && countToday != null && countToday.getCount() > 2) {
                                 showAds();
                             }
                             PreferenceUtil.saveLongPref(PreferenceUtil.TIME_COUNTER_SUBSCRIBED, 0);
@@ -1489,7 +1648,7 @@ public class SubcheoFragment extends Fragment
                             e.printStackTrace();
                         }
                         if (tmpSubCampaigns != null) {
-                            Log.d("Khang", "querry: key:" + tmpSubCampaigns.getKey() + " /cursub: " + tmpSubCampaigns.getCurSub() + " /oder" + tmpSubCampaigns.getOrder() + " /ownID: " + tmpSubCampaigns.getOwnId());
+                            Log.d("Khang", "querry: key:" + campaignDataSnapshot.getRef() + " /cursub: " + tmpSubCampaigns.getCurSub() + " /oder" + tmpSubCampaigns.getOrder() + " /ownID: " + tmpSubCampaigns.getOwnId());
 
                             Log.d("Khang", "channelId: " + tmpSubCampaigns.getUserName());
 
@@ -1521,6 +1680,27 @@ public class SubcheoFragment extends Fragment
 
                                     }
                                 });
+                            }
+
+                            //chien dich qua lau khong hoan thanh, xoa
+                            SimpleDateFormat sfd;
+                            sfd = new SimpleDateFormat(mContext.getResources().getString(R
+                                    .string.simple_date_format));
+                            Log.d("Khang", "CreateTime: " + sfd.format(new Date
+                                    ((long) tmpSubCampaigns.getCreTime())));
+                            if (SecureDate.getInstance().getDate().getTime() - (long) tmpSubCampaigns.getCreTime() > 90L * 24 * 60 * 60 * 1000) {
+                                Log.d("khang2", "querry delete too long time campaign: key:" + campaignDataSnapshot.getRef() + " /cursub: " + tmpSubCampaigns.getCurSub() + "/" + tmpSubCampaigns.getOrder() + " TimeR: " + tmpSubCampaigns.getTimeR() + " /ownID: " + tmpSubCampaigns.getOwnId());
+                                sfd = new SimpleDateFormat(mContext.getResources().getString(R
+                                        .string.simple_date_format));
+                                Log.d("khang2", "CreateTime: " + sfd.format(new Date
+                                        ((long) tmpSubCampaigns.getCreTime())));
+                                DatabaseReference wrongCampaignRef = campaignDataSnapshot.getRef();
+                                wrongCampaignRef.removeValue();
+                                DatabaseReference currentCampaignLogSubRef = FirebaseUtil.getLogSubRef().child(tmpSubCampaigns.getKey());
+                                currentCampaignLogSubRef.removeValue();
+                                numberQueryFail++;
+                                retryQueryWithDelay();
+                                return;
                             }
 
                             //kiem tra channelid, neu khong co id xoa chien dich va query lai
@@ -1653,10 +1833,6 @@ public class SubcheoFragment extends Fragment
         return false;
     }
 
-    private void loadRewardedVideoAd() {
-        mRewardedVideoAd
-                .loadAd(getString(R.string.admob_reward_ad_unit_id), new AdRequest.Builder().build());
-    }
 
     public void removedBannerAds() {
         if (mAdView != null && mAdView.getVisibility() == View.VISIBLE) {
@@ -1726,61 +1902,15 @@ public class SubcheoFragment extends Fragment
 //                }
             }
 
+        } else if (requestCode == CODE_REQUEST_CHECK_UNFOLLOW) {
+            isCheckedUnFollow = false;
+            //getUserInfobyAPI();
+            getUserInfoByWebView(false);
+
         }
         super.onActivityResult(requestCode, resultCode, data);
     }
 
-
-    @Override
-    public void onRewardedVideoAdLoaded() {
-
-    }
-
-    @Override
-    public void onRewardedVideoAdOpened() {
-
-    }
-
-    @Override
-    public void onRewardedVideoStarted() {
-
-    }
-
-    @Override
-    public void onRewardedVideoAdClosed() {
-        loadRewardedVideoAd();
-//        if (mInterstitialAd.isLoaded()) {
-//            mInterstitialAd.show();
-//            mInterstitialAd.loadAd(new AdRequest.Builder().build());
-//        } else {
-//            mInterstitialAd.loadAd(new AdRequest.Builder().build());
-//        }
-    }
-
-    @Override
-    public void onRewarded(RewardItem rewardItem) {
-        onRewarded();
-    }
-
-    @Override
-    public void onRewardedVideoAdLeftApplication() {
-
-    }
-
-    @Override
-    public void onRewardedVideoAdFailedToLoad(int i) {
-        if (mInterstitialAd.isLoaded()) {
-            mInterstitialAd.show();
-            mInterstitialAd.loadAd(new AdRequest.Builder().build());
-        } else {
-            mInterstitialAd.loadAd(new AdRequest.Builder().build());
-        }
-    }
-
-    @Override
-    public void onRewardedVideoCompleted() {
-
-    }
 
     private void onRewarded() {
         if (getContext() != null) {

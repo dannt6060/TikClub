@@ -48,7 +48,6 @@ import static tikfans.tikplus.util.AppUtil.SELECTED_VIDEO_THUMBNAIL_STRING_EXTRA
 import static tikfans.tikplus.util.AppUtil.SELECTED_VIDEO_WEB_LINK_STRING_EXTRA;
 import static tikfans.tikplus.util.AppUtil.convertStringToInteger;
 
-import org.json.JSONObject;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
@@ -59,7 +58,7 @@ public class ChonVideoActivity extends AppCompatActivity {
     private RecyclerView mRecyclerView;
     private VideoAdapter mAdapter;
     private ArrayList<String> mRunningCampaignList;
-    private RelativeLayout mNoVideoLayout;
+    private RelativeLayout mNoVideoLayout, mAddVideoLayout;
     private int mCampaignType;
     private ImageView imgToobarBack;
     private ArrayList<ItemVideo> list = new ArrayList<>();
@@ -72,6 +71,7 @@ public class ChonVideoActivity extends AppCompatActivity {
     private Button mBtnAdd;
     String mUserNameForCampaign;
     String mUserImgForCampaign;
+    boolean isNeedShowAddVideoLayout = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -93,6 +93,7 @@ public class ChonVideoActivity extends AppCompatActivity {
 
         mEditTextYTURL = findViewById(R.id.edittext_yt_url);
         mBtnAdd = findViewById(R.id.btn_add);
+        mAddVideoLayout = findViewById(R.id.add_video_layout);
         mBtnAdd.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -111,28 +112,31 @@ public class ChonVideoActivity extends AppCompatActivity {
                             hideProgressDialog();
 
                             try {
-                                String html = document.html();
-                                String start = "<script>window.__INIT_PROPS__ = ";
-                                String end = "</script>";
-                                String script = html.substring(html.indexOf(start));
-                                script = script.substring(start.length(), script.indexOf(end));
-                                JSONObject object = new JSONObject(script);
-                                JSONObject id = object.getJSONObject("/@:uniqueId/video/:id");
-                                JSONObject videoData = id.getJSONObject("videoData");
-                                JSONObject userInfo = videoData.getJSONObject("authorInfos");
-                                mUserNameForCampaign = userInfo.getString("uniqueId");
-                                mUserImgForCampaign = userInfo.getJSONArray("covers").get(0).toString();
-                                Log.e("khang", "onLoadFinish: UserName: " + userInfo.getString("uniqueId"));
-                                Log.e("khang", "onLoadFinish: UserAvatar: " + userInfo.getJSONArray("covers").get(0).toString());
+                                String imageUrl = "";
+                                String baseUrl = "";
+                                Elements findImgUrlElementList = document.getElementsByTag("meta");
+                                for (Element e:findImgUrlElementList) {
+                                    String content = e.attributes().get("content");
+                                    if (content.contains("expires=")) {
+                                        imageUrl = content;
+                                    }
+                                    if (content.contains("/video/")) {
+                                        baseUrl = content;
+                                        break;
+                                    }
+                                }
+                                mUserImgForCampaign = imageUrl;
+                                mUserNameForCampaign = baseUrl.substring(baseUrl.lastIndexOf("@") + 1, baseUrl.lastIndexOf("/video/"));
+                                String videoId = baseUrl.substring(baseUrl.lastIndexOf("/") + 1, baseUrl.lastIndexOf("/") + 20);
+
+                                Log.d("khang", "userName: " + mUserNameForCampaign + " / " + mUserImgForCampaign + " / " + videoId + " / " + baseUrl + " / " + imageUrl);
 
                                 ItemVideo item = new ItemVideo();
-                                String baseUrl = url.split(Pattern.quote("?"))[0];
                                 item.setWebVideoUrl(baseUrl);
-                                String videoId = baseUrl.substring(baseUrl.lastIndexOf("/") + 1);
                                 item.setId(videoId);
-                                String imageUrl = document.getElementById("tiktokVideo").attributes().get("poster");
                                 item.setImageUrl(imageUrl);
                                 startCampaignWithSelectedVideo(item);
+
 
                             } catch (Exception e) {
                                 e.printStackTrace();
@@ -289,104 +293,93 @@ public class ChonVideoActivity extends AppCompatActivity {
 
                 @Override
                 public void onLoadFinish(Document document, String url) {
-                    hideProgressDialog();
-                    Log.e("khang", "onLoadFinish: " + url);
 
-                    Elements user = document.getElementsByClass("user-page");
-                    if (user.size() > 0) {
-                        try {
-                            Element avatar = user.get(0).getElementsByClass("user-profile-avatar").get(0).getElementsByTag("img").get(0);
-                            String avatarUrl = avatar.attributes().get("src");
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        }
-
-                        try {
-                            Element userFollowing = user.get(0).getElementsByTag("ul").get(0)
-                                    .getElementsByTag("li").get(0)
-                                    .getElementsByTag("strong").get(0);
-                            String following = userFollowing.text();
-
-                            Element userFollowers = user.get(0).getElementsByTag("ul").get(0)
-                                    .getElementsByTag("li").get(1)
-                                    .getElementsByTag("strong").get(0);
-                            String followers = userFollowers.text();
-
-                            Element userLikes = user.get(0).getElementsByTag("ul").get(0)
-                                    .getElementsByTag("li").get(2)
-                                    .getElementsByTag("strong").get(0);
-                            String likes = userLikes.text();
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        }
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            hideProgressDialog();
+                            Log.e("khang", "onLoadFinish: " + url);
 
 
-                    }
+                            Elements listVideoElement = document.getElementsByClass("tiktok-a3te33-AVideoContainer e18clhtl2");
+                            if (listVideoElement.size() > 0 && list.size() == 0) {
+                                Log.e("khang", "onLoadFinish: video size: " + listVideoElement.size());
+                                for (Element video : listVideoElement) {
+                                    ItemVideo item = new ItemVideo();
+                                    try {
+                                        String videoUrl = video.attributes().get("href");
+                                        String[] splitUrl = videoUrl.split("/");
+                                        String id = splitUrl[splitUrl.length-1];
+                                        item.setId(id);
+                                        item.setWebVideoUrl(videoUrl);
 
-                    Elements listVideoElement = document.getElementsByClass("comp-card-item");
-                    if (listVideoElement.size() > 0 && list.size() == 0) {
-                        Log.e("khang", "onLoadFinish: video size: " + listVideoElement.size());
-                        for (Element video : listVideoElement) {
-                            ItemVideo item = new ItemVideo();
-                            try {
-                                String id = video.attributes().get("data-id");
-                                item.setId(id);
-                                Elements webUrlTag = video.getElementsByTag("a");
-                                if (webUrlTag.size() == 1) {
-                                    String webUrl = "https://www.tiktok.com" + webUrlTag.get(0).attributes().get("href");
-                                    item.setWebVideoUrl(webUrl);
+                                        String style = video.attributes().get("style");
+                                        style = style.replaceAll(Pattern.quote("&quot;"), "");
+                                        final Matcher matcher = pattern.matcher(style);
+                                        if (matcher.find()) {
+                                            String imageUrl = matcher.group(0);
+                                            imageUrl = imageUrl.replaceAll(Pattern.quote("(\""), "");
+                                            imageUrl = imageUrl.replaceAll(Pattern.quote("\")"), "");
+                                            item.setImageUrl(imageUrl);
+                                        }
 
-                                    String style = webUrlTag.get(0).attributes().get("style");
-                                    style = style.replaceAll(Pattern.quote("&quot;"), "");
-                                    final Matcher matcher = pattern.matcher(style);
-                                    if (matcher.find()) {
-                                        String imageUrl = matcher.group(0);
-                                        imageUrl = imageUrl.replaceAll(Pattern.quote("(\""), "");
-                                        imageUrl = imageUrl.replaceAll(Pattern.quote("\")"), "");
-                                        item.setImageUrl(imageUrl);
+
+                                        Elements playCountE = video.getElementsByClass("tiktok-1g6bqj2-SpanPlayCount");
+                                        if (playCountE.size() > 0) {
+                                            String playCount = playCountE.get(0).text();
+                                            item.setDiggCount(convertStringToInteger(playCount));
+                                        }
+                                    } catch (Exception e) {
+                                        e.printStackTrace();
+                                    }
+                                    list.add(item);
+                                }
+
+
+                                if (list != null && list.size() > 0) {
+                                    db.removeAll();
+                                    for (int i = 0; i < list.size(); i++) {
+                                        ItemVideo itemVideo = list.get(i);
+                                        db.addItemVideo(itemVideo);
+                                    }
+                                    mNoVideoLayout.setVisibility(View.INVISIBLE);
+                                    mRecyclerView.post(new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            mAdapter.setList(list);
+                                            mRecyclerView.setAdapter(mAdapter);
+                                        }
+                                    });
+                                    mAddVideoLayout.setVisibility(View.GONE);
+                                    isNeedShowAddVideoLayout = false;
+                                } else {
+                                    if (isNeedShowAddVideoLayout) {
+                                        mAddVideoLayout.setVisibility(View.VISIBLE);
+                                    } else {
+                                        isNeedShowAddVideoLayout = true;
                                     }
                                 }
 
-                                Elements diggCountTag = video.getElementsByTag("strong");
-                                if (diggCountTag.size() == 1) {
-                                    String diggCount = diggCountTag.get(0).text();
-                                    item.setDiggCount(convertStringToInteger(diggCount));
+                                mWebView.post(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        mWebView.setVisibility(View.INVISIBLE);
+                                    }
+                                });
+
+                            } else if (listVideoElement.size() == 0) {
+                                Log.e("khang", "onLoadFinish: empty video");
+                                if (isNeedShowAddVideoLayout) {
+                                    mAddVideoLayout.setVisibility(View.VISIBLE);
+                                } else {
+                                    isNeedShowAddVideoLayout = true;
                                 }
-                            } catch (Exception e) {
-                                e.printStackTrace();
+                            } else {
+                                Log.e("khang", "onLoadFinish: list video exist");
                             }
-                            list.add(item);
                         }
+                    });
 
-
-                        if (list != null && list.size() > 0) {
-                            db.removeAll();
-                            for (int i = 0; i < list.size(); i++) {
-                                ItemVideo itemVideo = list.get(i);
-                                db.addItemVideo(itemVideo);
-                            }
-                            mNoVideoLayout.setVisibility(View.INVISIBLE);
-                            mRecyclerView.post(new Runnable() {
-                                @Override
-                                public void run() {
-                                    mAdapter.setList(list);
-                                    mRecyclerView.setAdapter(mAdapter);
-                                }
-                            });
-                        }
-
-                        mWebView.post(new Runnable() {
-                            @Override
-                            public void run() {
-                                mWebView.setVisibility(View.INVISIBLE);
-                            }
-                        });
-
-                    } else if (listVideoElement.size() == 0) {
-                        Log.e("khang", "onLoadFinish: empty video");
-                    } else {
-                        Log.e("khang", "onLoadFinish: list video exist");
-                    }
                 }
             });
         }
@@ -413,6 +406,14 @@ public class ChonVideoActivity extends AppCompatActivity {
                 mAdapter.getList().clear();
                 mAdapter.getList().addAll(result.getResult());
                 mAdapter.notifyDataSetChanged();
+                mAddVideoLayout.setVisibility(View.GONE);
+                isNeedShowAddVideoLayout = false;
+            } else {
+                if (isNeedShowAddVideoLayout) {
+                    mAddVideoLayout.setVisibility(View.VISIBLE);
+                } else {
+                    isNeedShowAddVideoLayout = true;
+                }
             }
         }
 
@@ -523,6 +524,7 @@ public class ChonVideoActivity extends AppCompatActivity {
     private void showProgressDialog() {
         try {
             if (progressDialog != null && !progressDialog.isShowing()) {
+                progressDialog.setTitle(R.string.wait_a_moment);
                 progressDialog.show();
             }
         } catch (Exception e) {

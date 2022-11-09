@@ -21,6 +21,7 @@ import java.util.Date;
 public class AppUtil {
     public static final int INTENT_REQUEST_CODE_FOR_CREATE_CAMPAIGN = 10;
     public static final String UNFOLLOW_USER_LIST_EXTRA ="unfollow_user_list_extra" ;
+    public static final String UNFOLLOW_CHECK_ALL_LIST_USER_NAME = "unfollow_check_all_user_list_extra";
     public static String CAMPAIGN_PATH_STRING_EXTRA = "campaign_path_string_extra";
     public static String DEM_THOI_GIAN_CAMPAIGN_TIME_REQUEST_EXTRA = "campaign_time_extra";
     public static String DEM_THOI_GIAN_CAMPAIGN_COIN_EXTRA = "campaign_coin_extra";

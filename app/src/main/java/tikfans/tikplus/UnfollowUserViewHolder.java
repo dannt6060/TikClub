@@ -44,12 +44,16 @@ UnfollowUserViewHolder extends RecyclerView.ViewHolder implements View.OnClickLi
 
     public void setInfo(UnFollowUSer message) {
         String img_url = message.getUserImg();
-        Picasso.get().setLoggingEnabled(true);
-        Picasso.get()
-                .load(img_url)
-                .transform(new CircleTransform())
-                .into(mUserPhoto);
-        mUserName.setText("@" + message.getUserName());
+        if (img_url != null) {
+            Picasso.get().setLoggingEnabled(true);
+            Picasso.get()
+                    .load(img_url)
+                    .transform(new CircleTransform())
+                    .into(mUserPhoto);
+        }
+        if (message.getUserName() != null) {
+            mUserName.setText("@" + message.getUserName());
+        }
     }
 
 

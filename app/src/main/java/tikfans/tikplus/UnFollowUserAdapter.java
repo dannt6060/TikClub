@@ -51,7 +51,11 @@ public class UnFollowUserAdapter extends RecyclerView.Adapter<UnfollowUserViewHo
             @Override
             public void onClick(View view, int position) {
                 visitTiktokProfiles(unFollowUSerArrayList.get(position).getUserName());
-                FirebaseUtil.getUnSubscribedListRef().child(unFollowUSerArrayList.get(position).getUserName()).removeValue();
+                try {
+                    FirebaseUtil.getUnSubscribedListRef().child(unFollowUSerArrayList.get(position).getUserName()).removeValue();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
                 unFollowUSerArrayList.remove(position);
                 if (unFollowUSerArrayList.size() == 0) {
                     mActivity.finish();

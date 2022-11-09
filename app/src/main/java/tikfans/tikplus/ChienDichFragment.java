@@ -47,8 +47,7 @@ import tikfans.tikplus.model.ChienDichCuaNguoiDungHienTai;
 import tikfans.tikplus.model.SubCampaign;
 import tikfans.tikplus.util.PreferenceUtil;
 import tikfans.tikplus.util.RemoteConfigUtil;
-
-import static com.unity3d.services.core.properties.ClientProperties.getApplicationContext;
+import tikfans.tikplus.util.SecureDate;
 
 
 /**
@@ -197,14 +196,14 @@ public class ChienDichFragment extends Fragment {
                             long currentSubCoin = (long) dataSnapshot.getValue();
                             if (currentSubCoin <= 0) {
                                 hideProgressDialog();
-                                Toast.makeText(getApplicationContext(), getString(R.string.not_enough_coin), Toast.LENGTH_SHORT).show();
+                                Toast.makeText(getActivity(), getString(R.string.not_enough_coin), Toast.LENGTH_SHORT).show();
                                 return;
                             }
 
                             if (cost > currentSubCoin) {
                                 hideProgressDialog();
 
-                                Toast.makeText(getApplicationContext(), getString(R.string.not_enough_coin), Toast.LENGTH_LONG).show();
+                                Toast.makeText(getActivity(), getString(R.string.not_enough_coin), Toast.LENGTH_LONG).show();
                                 Intent buyIntent = new Intent(getActivity(), MuaHangActivity.class);
                                 buyIntent.putExtra(AppUtil.VIP_ACCOUNT_EXTRA, false);
                                 startActivity(buyIntent);
@@ -289,6 +288,7 @@ public class ChienDichFragment extends Fragment {
     }
 
     private void setupCampaign(ChienDichViewHolder holder, SubCampaign subCampaign, LikeCampaign likeCampaign) {
+        long currentTime = SecureDate.getInstance().getDate().getTime();
         if (subCampaign != null) {
             if (subCampaign.isIp()) {
                 mSubRunningCampaignList.add(subCampaign.getUserName());
@@ -296,6 +296,10 @@ public class ChienDichFragment extends Fragment {
             holder.setCampaignIcon(subCampaign.getUserImg(), 1, getContext());
 //            holder.setCampaignVideoTitle(subCampaign.getChannelName());
             holder.setProgressInfo(subCampaign.getCurSub(), subCampaign.getOrder(), 1);
+
+            if (subCampaign.isIp() && currentTime - (long) subCampaign.getLasTime() < 24*60*60*1000) {
+                holder.disableMoreIcon();
+            }
         } else if (likeCampaign != null) {
             if (likeCampaign.isIp()) {
                 mLikeRunningCampaignList.add(likeCampaign.getVideoId());
@@ -304,6 +308,9 @@ public class ChienDichFragment extends Fragment {
             holder.setCampaignIcon(img_url, 3, getContext());
 //            holder.setCampaignVideoTitle(likeCampaign.getVideoTitle());
             holder.setProgressInfo(likeCampaign.getCurLike(), likeCampaign.getOrder(), 3);
+            if (likeCampaign.isIp() && currentTime - (long) likeCampaign.getLasTime() < 24*60*60*1000) {
+                holder.disableMoreIcon();
+            }
         }
     }
 

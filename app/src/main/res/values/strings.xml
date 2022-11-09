@@ -1,5 +1,6 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <string name="ten_app">Tikfans</string>
+    <string name="ten_app_long">Tikfans - Get followers and likes for TikTok</string>
     <string name="navigation_drawer_open">Open navigation drawer</string>
     <string name="navigation_drawer_close">Close navigation drawer</string>
     <string name="nav_header_desc">Navigation header</string>
@@ -152,7 +153,7 @@
     <string name="vip_account">VIP account</string>
     <string name="ba_ngay_dung_thu">3 days free trial</string>
     <string name="bay_ngay_dung_thu">7 days free trial</string>
-    <string name="update_vip_account_success">Update to VIP Account success</string>
+    <string name="update_vip_account_success">You upgraded to a VIP account for %s.</string>
     <string name="upgrade">Upgrade</string>
     <string name="vip_account_reduce_10_percent">VIP account (reduce 10%)</string>
     <string name="usub_local_app">We released new app to help you to get new followers only from your country. Do you want to install it?</string>
@@ -202,7 +203,7 @@
     <string name="chat">Chat</string>
     <string name="send_message_success">Send message success</string>
     <string name="continue_string">Continue</string>
-    <string name="login_explain_text">*Input your username, not your display name</string>
+    <string name="login_explain_text">*Input your TikTok username, not your display name</string>
     <string name="please_input_user_name">Please input Tiktok username</string>
     <string name="select_your_video">Select your video</string>
     <string name="visit_tiktok_profiles">Visit Tiktok profiles</string>
@@ -220,4 +221,9 @@
     <string name="wrong_video_link">Wrong video link, please try again with other.</string>
     <string name="subscribe_limitation_extra">TikTok allows users to follow to 10000 channels. You have now followed to 10000 channels. So please create a new account to continue to follow. If you still use this account, Tiktok will identify you as a spammer.</string>
     <string name="agree">Agree</string>
+    <string name="special_promotion_vip_account">Upgrade to VIP account to get more benefit. Tap here to get more information</string>
+    <string name="manage_subscription_on_google_play">Manage subscription on Google Play</string>
+    <string name="google_play_subscription">Google Play subscriptions</string>
+    <string name="please_wait_for_login">Please wait for login</string>
+    <string name="wait_a_moment">Please wait a moment</string>
 </resources>

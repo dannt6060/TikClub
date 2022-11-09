@@ -1,5 +1,6 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <string name="ten_app">Tikfans</string>
+    <string name="ten_app_long">Tikfans - Get followers and likes for TikTok</string>
     <string name="navigation_drawer_open">Open navigation drawer</string>
     <string name="navigation_drawer_close">Close navigation drawer</string>
     <string name="nav_header_desc">Navigation header</string>
@@ -141,7 +142,7 @@
     <string name="vip_account">Tài khoản VIP</string>
     <string name="ba_ngay_dung_thu">3 ngày dùng thử miễn phí</string>
     <string name="bay_ngay_dung_thu">7 ngày dùng thử miễn phí</string>
-    <string name="update_vip_account_success">Nâng cấp lên tài khoản VIP thành công</string>
+    <string name="update_vip_account_success">Bạn đã nâng cấp tài khoản VIP trong +%s</string>
     <string name="upgrade">Nâng cấp</string>
     <string name="vip_account_reduce_10_percent">Tài khoản VIP (giảm 10%)</string>
     <string name="usub_local_app">Chúng tôi đã phát hành ứng dụng mới để giúp bạn nhận được những người theo dõi mới từ quốc gia của bạn. Bạn có muốn cài đặt nó?</string>
@@ -190,7 +191,7 @@
     <string name="chat">Chat</string>
     <string name="send_message_success">Gửi tin nhắn thành công</string>
     <string name="continue_string">Tiếp tục</string>
-    <string name="login_explain_text">Input your username, not your display name</string>
+    <string name="login_explain_text">Input your TikTok username, not your display name</string>
     <string name="please_input_user_name">Please input Tiktok username</string>
     <string name="select_your_video">Chọn video của bạn</string>
     <string name="visit_tiktok_profiles">Truy cập Tiktok profiles</string>
@@ -207,4 +208,9 @@
     <string name="wrong_video_link">Link video không đúng, xin vui lòng thử lại với link khác</string>
     <string name="subscribe_limitation_extra">Youtube allows users to subscribe to 10000 channels. You have now subscribed to 2000 channels. So please create a new account to continue to subscribe. If you still use this account, Youtube will identify you as a spammer.</string>
     <string name="agree">Đồng ý</string>
+    <string name="special_promotion_vip_account">Nâng cấp lên tài khoản VIP để nhận được thêm nhiều ưu đãi. Nhấn để biết thêm thông tin.</string>
+    <string name="manage_subscription_on_google_play">Quản lý gói đăng ký trên Google Play</string>
+    <string name="google_play_subscription">Gói đăng ký Google Play</string>
+    <string name="please_wait_for_login">Vui lòng đợi đăng nhập.</string>
+    <string name="wait_a_moment">Vui lòng đợi trong giây lát.</string>
 </resources>

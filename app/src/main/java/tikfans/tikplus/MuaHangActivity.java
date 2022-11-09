@@ -2,10 +2,13 @@ package tikfans.tikplus;
 
 import android.app.ProgressDialog;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.CountDownTimer;
+import android.os.Handler;
 import android.util.Log;
 import android.view.View;
+import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -25,14 +28,23 @@ import com.android.billingclient.api.BillingFlowParams;
 import com.android.billingclient.api.BillingResult;
 import com.android.billingclient.api.ConsumeParams;
 import com.android.billingclient.api.ConsumeResponseListener;
+import com.android.billingclient.api.ProductDetails;
+import com.android.billingclient.api.ProductDetailsResponseListener;
 import com.android.billingclient.api.Purchase;
+import com.android.billingclient.api.PurchasesResponseListener;
 import com.android.billingclient.api.PurchasesUpdatedListener;
+import com.android.billingclient.api.QueryProductDetailsParams;
+import com.android.billingclient.api.QueryPurchasesParams;
 import com.android.billingclient.api.SkuDetails;
 import com.android.billingclient.api.SkuDetailsParams;
 import com.android.billingclient.api.SkuDetailsResponseListener;
+import com.google.common.collect.ImmutableList;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.remoteconfig.FirebaseRemoteConfig;
 
 import java.util.ArrayList;
@@ -40,6 +52,7 @@ import java.util.Date;
 import java.util.List;
 
 import tikfans.tikplus.util.AppUtil;
+import tikfans.tikplus.util.CustomTextView;
 import tikfans.tikplus.util.FirebaseUtil;
 import tikfans.tikplus.util.PreferenceUtil;
 import tikfans.tikplus.util.RemoteConfigUtil;
@@ -64,7 +77,7 @@ public class MuaHangActivity extends AppCompatActivity implements View.OnClickLi
     TextView txtCoinBuyMiniPackage, txtCoinBuySmallPackage, txtCoinBuyLargerPackage, txtCoinBuyHugePackage, txtCoinBuyMaxPackage;
     TextView mTxtPriceMiniPackage, mTxtPriceSmallPackage, mTxtPriceLargePackage, mTxtPriceHugePackage, mTxtPriceMaxPackage, mTxtPriceWeekly, mTxtPriceMonthly, mTxtPrice3Months;
     TextView mTxtWeeklyDescription, mTxtMonthlyDescription, mTxtThreeMonthsDescription;
-
+    Button mManageSubscriptionButton;
     //for promote pacakge
     CardView mPromoPackageLayout;
     TextView txtCoinBuyPromoPackage, mTxtPricePromoPackage, mTxtCountDown, txtCoinBasePromoPackage;
@@ -105,7 +118,7 @@ public class MuaHangActivity extends AppCompatActivity implements View.OnClickLi
     };
 
     private boolean isConsumePurchase(Purchase purchase) {
-        String sku = purchase.getSku();
+        String sku = purchase.getProducts().get(0);
         if (sku.equals(SKU_HUGE_PACKAGE) || sku.equals(SKU_LARGE_PACKAGE) || sku.equals(SKU_MAX_PACKAGE) || sku.equals(SKU_MINI_PACKAGE) || sku.equals(SKU_SMALL_PACKAGE) || sku.equals(SKU_MINI_PROMOTE_PACKAGE) || sku.equals(SKU_LARGE_PROMOTE_PACKAGE) || sku.equals(SKU_MAX_PROMOTE_PACKAGE)) {
             return true;
         }
@@ -130,25 +143,29 @@ public class MuaHangActivity extends AppCompatActivity implements View.OnClickLi
                     public void onConsumeResponse(BillingResult billingResult, String purchaseToken) {
                         if (billingResult.getResponseCode() == BillingClient.BillingResponseCode.OK) {
                             // Handle the success of the consume operation.
-                            hideProgressDialog();
-                            Log.d("Khang", "consume: " + purchase.getSku() + ": " + purchase.getOrderId());
+                            MuaHangActivity.this.runOnUiThread(new Runnable() {
+                                public void run() {
+                                    hideProgressDialog();
+                                }
+                            });
+                            Log.d("Khang", "consume: " + purchase.getProducts().get(0) + ": " + purchase.getOrderId());
 
-                            if (purchase.getSku().equals(SKU_MINI_PACKAGE)) {
+                            if (purchase.getProducts().get(0).equals(SKU_MINI_PACKAGE)) {
                                 BuySuccessToFireBase(purchase, FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_PURCHASE_MINI_NEW));
-                            } else if (purchase.getSku().equals(SKU_SMALL_PACKAGE)) {
+                            } else if (purchase.getProducts().get(0).equals(SKU_SMALL_PACKAGE)) {
                                 BuySuccessToFireBase(purchase, FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_PURCHASE_SMALL_NEW));
-                            } else if (purchase.getSku().equals(SKU_LARGE_PACKAGE)) {
+                            } else if (purchase.getProducts().get(0).equals(SKU_LARGE_PACKAGE)) {
                                 BuySuccessToFireBase(purchase, FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_PURCHASE_LARGE_NEW));
-                            } else if (purchase.getSku().equals(SKU_HUGE_PACKAGE)) {
+                            } else if (purchase.getProducts().get(0).equals(SKU_HUGE_PACKAGE)) {
                                 BuySuccessToFireBase(purchase, FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_PURCHASE_HUGE_NEW));
-                            } else if (purchase.getSku().equals(SKU_MAX_PACKAGE)) {
+                            } else if (purchase.getProducts().get(0).equals(SKU_MAX_PACKAGE)) {
                                 BuySuccessToFireBase(purchase, FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_PURCHASE_MAX_NEW));
-                            } else if (purchase.getSku().equals(SKU_MINI_PROMOTE_PACKAGE)) {
+                            } else if (purchase.getProducts().get(0).equals(SKU_MINI_PROMOTE_PACKAGE)) {
                                 BuySuccessToFireBase(purchase, FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_PURCHASE_MINI_NEW) * 2);
-                            } else if (purchase.getSku().equals(SKU_LARGE_PROMOTE_PACKAGE)) {
+                            } else if (purchase.getProducts().get(0).equals(SKU_LARGE_PROMOTE_PACKAGE)) {
                                 BuySuccessToFireBase(purchase, FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_PURCHASE_LARGE_NEW) * 2);
-                            } else if (purchase.getSku().equals(SKU_MAX_PROMOTE_PACKAGE)) {
-                                BuySuccessToFireBase(purchase, FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_PURCHASE_MAX_NEW) * 2);
+                            } else if (purchase.getProducts().get(0).equals(SKU_MAX_PROMOTE_PACKAGE)) {
+                                BuySuccessToFireBase(purchase, FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_PURCHASE_MAX_NEW) * 120 / 100);
                             }
 
                         }
@@ -157,7 +174,11 @@ public class MuaHangActivity extends AppCompatActivity implements View.OnClickLi
 
                 billingClient.consumeAsync(consumeParams, listener);
             } else {
-                hideProgressDialog();
+                MuaHangActivity.this.runOnUiThread(new Runnable() {
+                    public void run() {
+                        hideProgressDialog();
+                    }
+                });
                 if (!purchase.isAcknowledged()) {
                     AcknowledgePurchaseParams acknowledgePurchaseParams =
                             AcknowledgePurchaseParams.newBuilder()
@@ -165,13 +186,30 @@ public class MuaHangActivity extends AppCompatActivity implements View.OnClickLi
                                     .build();
                     billingClient.acknowledgePurchase(acknowledgePurchaseParams, acknowledgePurchaseResponseListener);
                 }
-                Toast.makeText(getApplicationContext(), getString(R.string.update_vip_account_success), Toast.LENGTH_SHORT).show();
+                try {
+                    String vipAccountTime = "";
+                    if (purchase.getProducts().get(0).equals(SKU_VIP_MONTHLY)) {
+                        vipAccountTime = getString(R.string.mot_thang);
+                    } else if (purchase.getProducts().get(0).equals(SKU_VIP_THREE_MONTHS)) {
+                        vipAccountTime = getString(R.string.ba_thang);
+                    } else if (purchase.getProducts().get(0).equals(SKU_VIP_YEARLY)) {
+                        vipAccountTime = getString(R.string.yearly);
+                    }
+                    String finalVipAccountTime = vipAccountTime;
+                    MuaHangActivity.this.runOnUiThread(new Runnable() {
+                        public void run() {
+                            Toast.makeText(getApplicationContext(), String.format(getString(R.string.update_vip_account_success), finalVipAccountTime), Toast.LENGTH_LONG).show();
+                        }
+                    });
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
                 FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
                 MyChannelApplication.isVipAccount = true;
                 if (user != null) {
-                    FirebaseUtil.getSubscriptionInfoRef().setValue(new LogPurchase(user.getUid(), purchase.getOrderId(), "tikfans.tikplus", purchase.getSku(), purchase.getPurchaseTime(), purchase.getPurchaseToken(), 0));
+                    FirebaseUtil.getSubscriptionInfoRef().setValue(new LogPurchase(user.getUid(), purchase.getOrderId(), "tikfans.tikplus", purchase.getProducts().get(0), purchase.getPurchaseTime(), purchase.getPurchaseToken(), 0));
                 }
-                Log.d("Khang", "subscription:" + purchase.toString());
+                Log.d("Khang", "updated to VIP account subscription:" + purchase.toString());
                 FirebaseUtil.getVipAccountRef().setValue(MyChannelApplication.isVipAccount);
             }
         }
@@ -181,7 +219,8 @@ public class MuaHangActivity extends AppCompatActivity implements View.OnClickLi
 
     private ImageView imgToobarBack;
     private TextView mTxtTitleActionBar;
-    private List<SkuDetails> skuDetailsList;
+    private CustomTextView mTxtCoin;
+    private List<ProductDetails> productDetailsSaveToList;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -191,13 +230,36 @@ public class MuaHangActivity extends AppCompatActivity implements View.OnClickLi
         Toolbar toolbar = findViewById(R.id.toolbar);
         imgToobarBack = findViewById(R.id.toolbar_back);
         mTxtTitleActionBar = findViewById(R.id.text_title);
+        mTxtCoin = (CustomTextView) findViewById(R.id.coin);
+        productDetailsSaveToList = new ArrayList<>();
 
         setSupportActionBar(toolbar);
+
+        DatabaseReference coinRef = FirebaseUtil.getCoinCurrentAccountRef();
+        coinRef.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                if (dataSnapshot.exists()) {
+                    try {
+                        long currentCoin = (long) dataSnapshot.getValue();
+                        mTxtCoin.setText(String.valueOf(currentCoin));
+                    } catch (ClassCastException e) {
+                        finish();
+                    }
+                }
+            }
+
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
+
+            }
+        });
 
         billingClient = BillingClient.newBuilder(getApplicationContext())
                 .setListener(purchaseUpdateListener)
                 .enablePendingPurchases()
                 .build();
+        startBillingConnection();
 
         imgToobarBack.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -231,8 +293,19 @@ public class MuaHangActivity extends AppCompatActivity implements View.OnClickLi
         mTxtMonthlyDescription = findViewById(R.id.three_monthly_description);
         mTxtThreeMonthsDescription = findViewById(R.id.yearly_description);
 
+        mManageSubscriptionButton = findViewById(R.id.btn_google_play_subscription);
+        mManageSubscriptionButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Log.i("khang", "Viewing subscriptions on the Google Play Store");
+                String url = "https://play.google.com/store/account/subscriptions";
+                Intent intent = new Intent(Intent.ACTION_VIEW);
+                intent.setData(Uri.parse(url));
+                startActivity(intent);
+            }
+        });
+
         progressDialog = new ProgressDialog(this);
-        skuDetailsList = new ArrayList<>();
 
         Intent intent = getIntent();
         isBuyVipAccount = intent.getBooleanExtra(AppUtil.VIP_ACCOUNT_EXTRA, false);
@@ -279,122 +352,13 @@ public class MuaHangActivity extends AppCompatActivity implements View.OnClickLi
 //            if ((day + month) % 3 == 2) {
                 mPromoPackageLayout.setVisibility(View.VISIBLE);
                 typeOfPromotePackage = TYPE_MAX_PROMOTE_PACKAGE;
-                txtCoinBuyPromoPackage.setText(String.format(getString(R.string.mua_coin), FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_PURCHASE_MAX_NEW) * 2));
+                txtCoinBuyPromoPackage.setText(String.format(getString(R.string.mua_coin), FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_PURCHASE_MAX_NEW) * 120 / 100));
                 txtCoinBasePromoPackage.setText(String.format(getString(R.string.mua_coin), FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_PURCHASE_MAX_NEW)));
 
             }
             initTimer(remainTime);
         }
 
-        billingClient.startConnection(new BillingClientStateListener() {
-            @Override
-            public void onBillingSetupFinished(@NonNull BillingResult billingResult) {
-                List<String> skuList = new ArrayList<>();
-                skuList.add(SKU_VIP_MONTHLY);
-                skuList.add(SKU_VIP_THREE_MONTHS);
-                skuList.add(SKU_VIP_YEARLY);
-
-                SkuDetailsParams.Builder params = SkuDetailsParams.newBuilder();
-                params.setSkusList(skuList).setType(BillingClient.SkuType.SUBS);
-                billingClient.querySkuDetailsAsync(params.build(),
-
-                        new SkuDetailsResponseListener() {
-                            @Override
-                            public void onSkuDetailsResponse(@NonNull BillingResult billingResult, @Nullable List<SkuDetails> list) {
-                                try {
-                                    for (int i = 0; i < list.size(); i++) {
-                                        SkuDetails skuDetail = list.get(i);
-                                        skuDetailsList.add(skuDetail);
-                                        String textPrice = skuDetail.getPrice();
-                                        if (skuDetail.getSku().equals(SKU_VIP_MONTHLY)) {
-                                            mTxtPriceWeekly.setText(textPrice);
-                                            mTxtWeeklyDescription.setText(String.format(getString(R.string.monthly_description), textPrice));
-                                        } else if (skuDetail.getSku().equals(SKU_VIP_THREE_MONTHS)) {
-                                            mTxtPriceMonthly.setText(textPrice);
-                                            mTxtMonthlyDescription.setText(String.format(getString(R.string.three_monthly_description), textPrice));
-                                        } else if (skuDetail.getSku().equals(SKU_VIP_YEARLY)) {
-                                            mTxtPrice3Months.setText(textPrice);
-                                            mTxtThreeMonthsDescription.setText(String.format(getString(R.string.yearly_description), textPrice));
-                                        }
-                                    }
-                                } catch (Exception e) {
-                                    e.printStackTrace();
-                                }
-                            }
-
-                        });
-
-                List<String> skuInAppList = new ArrayList<>();
-                skuInAppList.add(SKU_MINI_PACKAGE);
-                skuInAppList.add(SKU_SMALL_PACKAGE);
-                skuInAppList.add(SKU_LARGE_PACKAGE);
-                skuInAppList.add(SKU_HUGE_PACKAGE);
-                skuInAppList.add(SKU_MAX_PACKAGE);
-                //for promotion package
-                skuInAppList.add(SKU_MINI_PROMOTE_PACKAGE);
-                skuInAppList.add(SKU_LARGE_PROMOTE_PACKAGE);
-                skuInAppList.add(SKU_MAX_PROMOTE_PACKAGE);
-                SkuDetailsParams.Builder params2 = SkuDetailsParams.newBuilder();
-                params2.setSkusList(skuInAppList).setType(BillingClient.SkuType.INAPP);
-                billingClient.querySkuDetailsAsync(params2.build(),
-                        new SkuDetailsResponseListener() {
-                            @Override
-                            public void onSkuDetailsResponse(@NonNull BillingResult billingResult, @Nullable List<SkuDetails> list) {
-                                try {
-                                    for (int i = 0; i < list.size(); i++) {
-                                        SkuDetails skuDetail = list.get(i);
-                                        skuDetailsList.add(skuDetail);
-                                        String textPrice = skuDetail.getPrice();
-                                        if (skuDetail.getSku().equals(SKU_MINI_PACKAGE)) {
-                                            mTxtPriceMiniPackage.setText(textPrice);
-                                        } else if (skuDetail.getSku().equals(SKU_SMALL_PACKAGE)) {
-                                            mTxtPriceSmallPackage.setText(textPrice);
-                                        } else if (skuDetail.getSku().equals(SKU_LARGE_PACKAGE)) {
-                                            mTxtPriceLargePackage.setText(textPrice);
-                                        } else if (skuDetail.getSku().equals(SKU_HUGE_PACKAGE)) {
-                                            mTxtPriceHugePackage.setText(textPrice);
-                                        } else if (skuDetail.getSku().equals(SKU_MAX_PACKAGE)) {
-                                            mTxtPriceMaxPackage.setText(textPrice);
-                                        } else {
-                                            if (skuDetail.getSku().equals(SKU_MINI_PROMOTE_PACKAGE) && typeOfPromotePackage == TYPE_MINI_PROMOTE_PACKAGE) {
-                                                mTxtPricePromoPackage.setText(textPrice);
-                                            }
-                                            if (skuDetail.getSku().equals(SKU_LARGE_PROMOTE_PACKAGE) && typeOfPromotePackage == TYPE_LARGE_PROMOTE_PACKAGE) {
-                                                mTxtPricePromoPackage.setText(textPrice);
-                                            }
-                                            if (skuDetail.getSku().equals(SKU_MAX_PROMOTE_PACKAGE) && typeOfPromotePackage == TYPE_MAX_PROMOTE_PACKAGE) {
-                                                mTxtPricePromoPackage.setText(textPrice);
-                                            }
-                                        }
-                                    }
-                                } catch (Exception e) {
-                                    e.printStackTrace();
-                                }
-                            }
-                        });
-
-                Purchase.PurchasesResult purchasesResult = billingClient.queryPurchases(BillingClient.SkuType.INAPP);
-                List<Purchase> purchaseList = purchasesResult.getPurchasesList();
-                if (purchaseList != null) {
-                    for (Purchase purchase : purchaseList) {
-                        handlePurchase(purchase);
-                    }
-                }
-                Purchase.PurchasesResult subscriptionPurchasesResult = billingClient.queryPurchases(BillingClient.SkuType.SUBS);
-                List<Purchase> subscriptionPurchaseList = subscriptionPurchasesResult.getPurchasesList();
-                if (subscriptionPurchaseList != null) {
-                    for (Purchase purchase : subscriptionPurchaseList) {
-                        handlePurchase(purchase);
-                    }
-                }
-            }
-
-            @Override
-            public void onBillingServiceDisconnected() {
-                // Try to restart the connection on the next request to
-                // Google Play by calling the startConnection() method.
-            }
-        });
 
         if (isBuyVipAccount) {
             mTxtTitleActionBar.setText(getString(R.string.vip_account));
@@ -427,6 +391,260 @@ public class MuaHangActivity extends AppCompatActivity implements View.OnClickLi
         txtCoinBuyHugePackage.setText(String.format(getString(R.string.mua_coin), FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_PURCHASE_HUGE_NEW)));
         txtCoinBuyMaxPackage.setText(String.format(getString(R.string.mua_coin), FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_PURCHASE_MAX_NEW)));
     }
+
+    private void startBillingConnection() {
+        billingClient.startConnection(new BillingClientStateListener() {
+            @Override
+            public void onBillingSetupFinished(@NonNull BillingResult billingResult) {
+                if (isBuyVipAccount) {
+                    billingClient.queryPurchasesAsync(
+                            QueryPurchasesParams.newBuilder()
+                                    .setProductType(BillingClient.ProductType.SUBS)
+                                    .build(),
+                            new PurchasesResponseListener() {
+                                public void onQueryPurchasesResponse(BillingResult billingResult, List<com.android.billingclient.api.Purchase> purchases) {
+                                    // check billingResult
+                                    // process returned purchase list, e.g. display the plans user owns
+                                    Log.d("KhangPurchase", "onQueryPurchasesResponse for sub: " + purchases.toString());
+                                    for (Purchase purchase : purchases) {
+                                        handlePurchase(purchase);
+                                    }
+                                }
+                            }
+                    );
+                    QueryProductDetailsParams queryProductDetailsParams =
+                            QueryProductDetailsParams.newBuilder()
+                                    .setProductList(
+                                            ImmutableList.of(
+                                                    QueryProductDetailsParams.Product.newBuilder()
+                                                            .setProductId(SKU_VIP_MONTHLY)
+                                                            .setProductType(BillingClient.ProductType.SUBS)
+                                                            .build(),
+                                                    QueryProductDetailsParams.Product.newBuilder()
+                                                            .setProductId(SKU_VIP_THREE_MONTHS)
+                                                            .setProductType(BillingClient.ProductType.SUBS)
+                                                            .build(),
+                                                    QueryProductDetailsParams.Product.newBuilder()
+                                                            .setProductId(SKU_VIP_YEARLY)
+                                                            .setProductType(BillingClient.ProductType.SUBS)
+                                                            .build()))
+                                    .build();
+
+                    billingClient.queryProductDetailsAsync(
+                            queryProductDetailsParams,
+                            new ProductDetailsResponseListener() {
+                                public void onProductDetailsResponse(@NonNull BillingResult billingResult,
+                                                                     List<ProductDetails> productDetailsList) {
+                                    // check billingResult
+                                    // process returned productDetailsList
+                                    Log.d("khangPurchase", "queryProductDetails: productDetailsList size:" + productDetailsList.size());
+                                    for (ProductDetails productDetails : productDetailsList) {
+                                        Log.d("khangPurchase", "queryProductDetails: " + productDetails);
+                                        productDetailsSaveToList.add(productDetails);
+                                        if (productDetails.getSubscriptionOfferDetails() != null) {
+                                            String textPrice = productDetails.getSubscriptionOfferDetails().get(0).getPricingPhases().getPricingPhaseList().get(0).getFormattedPrice();
+                                            if (productDetails.getProductId().equals(SKU_VIP_MONTHLY)) {
+                                                mTxtPriceWeekly.post(new Runnable() {
+                                                    @Override
+                                                    public void run() {
+                                                        mTxtPriceWeekly.setText(textPrice);
+                                                    }
+                                                });
+                                                mTxtWeeklyDescription.post(new Runnable() {
+                                                    @Override
+                                                    public void run() {
+                                                        mTxtWeeklyDescription.setText(String.format(getString(R.string.monthly_description), textPrice));
+                                                    }
+                                                });
+                                            } else if (productDetails.getProductId().equals(SKU_VIP_THREE_MONTHS)) {
+                                                mTxtPriceMonthly.post(new Runnable() {
+                                                    @Override
+                                                    public void run() {
+                                                        mTxtPriceMonthly.setText(textPrice);
+                                                    }
+                                                });
+                                                mTxtMonthlyDescription.post(new Runnable() {
+                                                    @Override
+                                                    public void run() {
+                                                        mTxtMonthlyDescription.setText(String.format(getString(R.string.three_monthly_description), textPrice));
+                                                    }
+                                                });
+                                            } else if (productDetails.getProductId().equals(SKU_VIP_YEARLY)) {
+                                                mTxtPrice3Months.post(new Runnable() {
+                                                    @Override
+                                                    public void run() {
+                                                        mTxtPrice3Months.setText(textPrice);
+                                                    }
+                                                });
+                                                mTxtThreeMonthsDescription.post(new Runnable() {
+                                                    @Override
+                                                    public void run() {
+                                                        mTxtThreeMonthsDescription.setText(String.format(getString(R.string.yearly_description), textPrice));
+                                                    }
+                                                });
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                    );
+                } else {
+                    QueryProductDetailsParams queryInAppProductDetailsParams =
+                            QueryProductDetailsParams.newBuilder()
+                                    .setProductList(
+                                            ImmutableList.of(
+                                                    QueryProductDetailsParams.Product.newBuilder()
+                                                            .setProductId(SKU_MINI_PACKAGE)
+                                                            .setProductType(BillingClient.ProductType.INAPP)
+                                                            .build(),
+                                                    QueryProductDetailsParams.Product.newBuilder()
+                                                            .setProductId(SKU_MINI_PROMOTE_PACKAGE)
+                                                            .setProductType(BillingClient.ProductType.INAPP)
+                                                            .build(),
+                                                    QueryProductDetailsParams.Product.newBuilder()
+                                                            .setProductId(SKU_SMALL_PACKAGE)
+                                                            .setProductType(BillingClient.ProductType.INAPP)
+                                                            .build(),
+                                                    QueryProductDetailsParams.Product.newBuilder()
+                                                            .setProductId(SKU_LARGE_PACKAGE)
+                                                            .setProductType(BillingClient.ProductType.INAPP)
+                                                            .build(),
+                                                    QueryProductDetailsParams.Product.newBuilder()
+                                                            .setProductId(SKU_LARGE_PROMOTE_PACKAGE)
+                                                            .setProductType(BillingClient.ProductType.INAPP)
+                                                            .build(),
+                                                    QueryProductDetailsParams.Product.newBuilder()
+                                                            .setProductId(SKU_HUGE_PACKAGE)
+                                                            .setProductType(BillingClient.ProductType.INAPP)
+                                                            .build(),
+                                                    QueryProductDetailsParams.Product.newBuilder()
+                                                            .setProductId(SKU_MAX_PACKAGE)
+                                                            .setProductType(BillingClient.ProductType.INAPP)
+                                                            .build(),
+                                                    QueryProductDetailsParams.Product.newBuilder()
+                                                            .setProductId(SKU_MAX_PROMOTE_PACKAGE)
+                                                            .setProductType(BillingClient.ProductType.INAPP)
+                                                            .build()))
+                                    .build();
+
+                    billingClient.queryProductDetailsAsync(
+                            queryInAppProductDetailsParams,
+                            new ProductDetailsResponseListener() {
+                                public void onProductDetailsResponse(@NonNull BillingResult billingResult,
+                                                                     List<ProductDetails> productDetailsList) {
+                                    // check billingResult
+                                    // process returned productDetailsList
+                                    Log.d("khangPurchase", "queryProductDetails: productDetailsList size:" + productDetailsList.size());
+                                    productDetailsSaveToList.addAll(productDetailsList);
+                                    for (int i = 0; i < productDetailsList.size(); i++) {
+                                        ProductDetails productDetails = productDetailsList.get(i);
+                                        Log.d("khangPurchase", "queryProductDetails: " + productDetails);
+                                        if (productDetails.getOneTimePurchaseOfferDetails() != null) {
+                                            String textPrice = productDetails.getOneTimePurchaseOfferDetails().getFormattedPrice();
+                                            if (productDetails.getProductId().equals(SKU_MINI_PACKAGE)) {
+                                                mTxtPriceMiniPackage.post(new Runnable() {
+                                                    @Override
+                                                    public void run() {
+                                                        mTxtPriceMiniPackage.setText(textPrice);
+                                                    }
+                                                });
+                                            } else if (productDetails.getProductId().equals(SKU_SMALL_PACKAGE)) {
+                                                mTxtPriceSmallPackage.post(new Runnable() {
+                                                    @Override
+                                                    public void run() {
+                                                        mTxtPriceSmallPackage.setText(textPrice);
+                                                    }
+                                                });
+                                            } else if (productDetails.getProductId().equals(SKU_LARGE_PACKAGE)) {
+                                                mTxtPriceLargePackage.post(new Runnable() {
+                                                    @Override
+                                                    public void run() {
+                                                        mTxtPriceLargePackage.setText(textPrice);
+                                                    }
+                                                });
+                                            } else if (productDetails.getProductId().equals(SKU_HUGE_PACKAGE)) {
+                                                mTxtPriceHugePackage.post(new Runnable() {
+                                                    @Override
+                                                    public void run() {
+                                                        mTxtPriceHugePackage.setText(textPrice);
+                                                    }
+                                                });
+                                            } else if (productDetails.getProductId().equals(SKU_MAX_PACKAGE)) {
+                                                mTxtPriceMaxPackage.post(new Runnable() {
+                                                    @Override
+                                                    public void run() {
+                                                        mTxtPriceMaxPackage.setText(textPrice);
+                                                    }
+                                                });
+                                            } else if ((productDetails.getProductId().equals(SKU_MAX_PROMOTE_PACKAGE) && typeOfPromotePackage == TYPE_MAX_PROMOTE_PACKAGE)  || (productDetails.getProductId().equals(SKU_MINI_PROMOTE_PACKAGE)  && typeOfPromotePackage == TYPE_MINI_PROMOTE_PACKAGE) || (productDetails.getProductId().equals(SKU_LARGE_PROMOTE_PACKAGE) && typeOfPromotePackage == TYPE_LARGE_PROMOTE_PACKAGE)) {
+                                                mTxtPricePromoPackage.post(new Runnable() {
+                                                    @Override
+                                                    public void run() {
+                                                        mTxtPricePromoPackage.setText(textPrice);
+                                                    }
+                                                });
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                    );
+                }
+            }
+
+            @Override
+            public void onBillingServiceDisconnected() {
+                // Try to restart the connection on the next request to
+                // Google Play by calling the startConnection() method.
+                startBillingConnection();
+            }
+        });
+    }
+
+    @Override
+    protected void onResume() {
+        new Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                hideProgressDialog();
+            }
+        },2000);
+        if (isBuyVipAccount) {
+            billingClient.queryPurchasesAsync(
+                    QueryPurchasesParams.newBuilder()
+                            .setProductType(BillingClient.ProductType.SUBS)
+                            .build(),
+                    new PurchasesResponseListener() {
+                        public void onQueryPurchasesResponse(BillingResult billingResult, List<com.android.billingclient.api.Purchase> purchases) {
+                            // check billingResult
+                            // process returned purchase list, e.g. display the plans user owns
+                            Log.d("KhangPurchase", "onQueryPurchasesResponse for sub: " + purchases.toString());
+                            for (Purchase purchase : purchases) {
+                                handlePurchase(purchase);
+                            }
+                        }
+                    }
+            );
+        } else {
+            billingClient.queryPurchasesAsync(
+                    QueryPurchasesParams.newBuilder()
+                            .setProductType(BillingClient.ProductType.INAPP)
+                            .build(),
+                    new PurchasesResponseListener() {
+                        public void onQueryPurchasesResponse(BillingResult billingResult, List<com.android.billingclient.api.Purchase> purchases) {
+                            // check billingResult
+                            // process returned purchase list, e.g. display the plans user owns
+                            Log.d("khangPurchase", "onQueryPurchasesResponse for in app: " + purchases.toString());
+                            for (Purchase purchase : purchases) {
+                                handlePurchase(purchase);
+                            }
+                        }
+                    }
+            );
+        }
+        super.onResume();
+    }
+
 
     private void initTimer(long timerCount) {
         mCountDownTimer =
@@ -466,15 +684,16 @@ public class MuaHangActivity extends AppCompatActivity implements View.OnClickLi
         super.onActivityResult(requestCode, resultCode, data);
     }
 
-    private SkuDetails getSkuDetailsFromList(String sku) {
-        if (skuDetailsList == null || skuDetailsList.size() == 0) return null;
-        for (int i = 0; i < skuDetailsList.size(); i++) {
-            SkuDetails skuDetail = skuDetailsList.get(i);
-            if (skuDetail.getSku().equals(sku)) return skuDetail;
+    private ProductDetails getProductDetailsFromList(String productId) {
+        if (productDetailsSaveToList == null || productDetailsSaveToList.size() == 0)
+            return null;
+        for (int i = 0; i < productDetailsSaveToList.size(); i++) {
+            ProductDetails productDetails = productDetailsSaveToList.get(i);
+            if (productDetails.getProductId().equals(productId)) return productDetails;
         }
         return null;
-
     }
+
 
     @Override
     public void onClick(View v) {
@@ -482,80 +701,110 @@ public class MuaHangActivity extends AppCompatActivity implements View.OnClickLi
         switch (v.getId()) {
             case R.id.buy_mini:
                 try {
-                    SkuDetails skuDetails = getSkuDetailsFromList(SKU_MINI_PACKAGE);
-                    if (skuDetails != null) {
-                        BillingFlowParams billingFlowParams = BillingFlowParams.newBuilder()
-                                .setSkuDetails(skuDetails)
-                                .build();
-                        int responseCode = billingClient.launchBillingFlow(this, billingFlowParams).getResponseCode();
-                        if (responseCode != BillingClient.BillingResponseCode.OK) {
-                            Toast.makeText(getApplicationContext(), getString(R.string.mua_that_bai), Toast.LENGTH_SHORT).show();
-                        }
-                    }
+                    ImmutableList productDetailsParamsList =
+                            ImmutableList.of(
+                                    BillingFlowParams.ProductDetailsParams.newBuilder()
+                                            // retrieve a value for "productDetails" by calling queryProductDetailsAsync()
+                                            .setProductDetails(getProductDetailsFromList(SKU_MINI_PACKAGE))
+                                            // to get an offer token, call ProductDetails.getSubscriptionOfferDetails()
+                                            // for a list of offers that are available to the user
+                                            .build()
+                            );
+
+                    BillingFlowParams billingFlowParams = BillingFlowParams.newBuilder()
+                            .setProductDetailsParamsList(productDetailsParamsList)
+                            .build();
+
+// Launch the billing flow
+                    BillingResult billingResult = billingClient.launchBillingFlow(MuaHangActivity.this, billingFlowParams);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
                 break;
             case R.id.buy_small:
                 try {
-                    SkuDetails skuDetails = getSkuDetailsFromList(SKU_SMALL_PACKAGE);
-                    if (skuDetails != null) {
-                        BillingFlowParams billingFlowParams = BillingFlowParams.newBuilder()
-                                .setSkuDetails(skuDetails)
-                                .build();
-                        int responseCode = billingClient.launchBillingFlow(this, billingFlowParams).getResponseCode();
-                        if (responseCode != BillingClient.BillingResponseCode.OK) {
-                            Toast.makeText(getApplicationContext(), getString(R.string.mua_that_bai), Toast.LENGTH_SHORT).show();
-                        }
-                    }
+                    ImmutableList productDetailsParamsList =
+                            ImmutableList.of(
+                                    BillingFlowParams.ProductDetailsParams.newBuilder()
+                                            // retrieve a value for "productDetails" by calling queryProductDetailsAsync()
+                                            .setProductDetails(getProductDetailsFromList(SKU_SMALL_PACKAGE))
+                                            // to get an offer token, call ProductDetails.getSubscriptionOfferDetails()
+                                            // for a list of offers that are available to the user
+                                            .build()
+                            );
+
+                    BillingFlowParams billingFlowParams = BillingFlowParams.newBuilder()
+                            .setProductDetailsParamsList(productDetailsParamsList)
+                            .build();
+
+// Launch the billing flow
+                    BillingResult billingResult = billingClient.launchBillingFlow(MuaHangActivity.this, billingFlowParams);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
                 break;
             case R.id.buy_lager:
                 try {
-                    SkuDetails skuDetails = getSkuDetailsFromList(SKU_LARGE_PACKAGE);
-                    if (skuDetails != null) {
-                        BillingFlowParams billingFlowParams = BillingFlowParams.newBuilder()
-                                .setSkuDetails(skuDetails)
-                                .build();
-                        int responseCode = billingClient.launchBillingFlow(this, billingFlowParams).getResponseCode();
-                        if (responseCode != BillingClient.BillingResponseCode.OK) {
-                            Toast.makeText(getApplicationContext(), getString(R.string.mua_that_bai), Toast.LENGTH_SHORT).show();
-                        }
-                    }
+                    ImmutableList productDetailsParamsList =
+                            ImmutableList.of(
+                                    BillingFlowParams.ProductDetailsParams.newBuilder()
+                                            // retrieve a value for "productDetails" by calling queryProductDetailsAsync()
+                                            .setProductDetails(getProductDetailsFromList(SKU_LARGE_PACKAGE))
+                                            // to get an offer token, call ProductDetails.getSubscriptionOfferDetails()
+                                            // for a list of offers that are available to the user
+                                            .build()
+                            );
+
+                    BillingFlowParams billingFlowParams = BillingFlowParams.newBuilder()
+                            .setProductDetailsParamsList(productDetailsParamsList)
+                            .build();
+
+// Launch the billing flow
+                    BillingResult billingResult = billingClient.launchBillingFlow(MuaHangActivity.this, billingFlowParams);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
                 break;
             case R.id.buy_huge:
                 try {
-                    SkuDetails skuDetails = getSkuDetailsFromList(SKU_HUGE_PACKAGE);
-                    if (skuDetails != null) {
-                        BillingFlowParams billingFlowParams = BillingFlowParams.newBuilder()
-                                .setSkuDetails(skuDetails)
-                                .build();
-                        int responseCode = billingClient.launchBillingFlow(this, billingFlowParams).getResponseCode();
-                        if (responseCode != BillingClient.BillingResponseCode.OK) {
-                            Toast.makeText(getApplicationContext(), getString(R.string.mua_that_bai), Toast.LENGTH_SHORT).show();
-                        }
-                    }
+                    ImmutableList productDetailsParamsList =
+                            ImmutableList.of(
+                                    BillingFlowParams.ProductDetailsParams.newBuilder()
+                                            // retrieve a value for "productDetails" by calling queryProductDetailsAsync()
+                                            .setProductDetails(getProductDetailsFromList(SKU_HUGE_PACKAGE))
+                                            // to get an offer token, call ProductDetails.getSubscriptionOfferDetails()
+                                            // for a list of offers that are available to the user
+                                            .build()
+                            );
+
+                    BillingFlowParams billingFlowParams = BillingFlowParams.newBuilder()
+                            .setProductDetailsParamsList(productDetailsParamsList)
+                            .build();
+
+// Launch the billing flow
+                    BillingResult billingResult = billingClient.launchBillingFlow(MuaHangActivity.this, billingFlowParams);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
                 break;
             case R.id.buy_max:
                 try {
-                    SkuDetails skuDetails = getSkuDetailsFromList(SKU_MAX_PACKAGE);
-                    if (skuDetails != null) {
-                        BillingFlowParams billingFlowParams = BillingFlowParams.newBuilder()
-                                .setSkuDetails(skuDetails)
-                                .build();
-                        int responseCode = billingClient.launchBillingFlow(this, billingFlowParams).getResponseCode();
-                        if (responseCode != BillingClient.BillingResponseCode.OK) {
-                            Toast.makeText(getApplicationContext(), getString(R.string.mua_that_bai), Toast.LENGTH_SHORT).show();
-                        }
-                    }
+                    ImmutableList productDetailsParamsList =
+                            ImmutableList.of(
+                                    BillingFlowParams.ProductDetailsParams.newBuilder()
+                                            // retrieve a value for "productDetails" by calling queryProductDetailsAsync()
+                                            .setProductDetails(getProductDetailsFromList(SKU_MAX_PACKAGE))
+                                            // to get an offer token, call ProductDetails.getSubscriptionOfferDetails()
+                                            // for a list of offers that are available to the user
+                                            .build()
+                            );
+
+                    BillingFlowParams billingFlowParams = BillingFlowParams.newBuilder()
+                            .setProductDetailsParamsList(productDetailsParamsList)
+                            .build();
+
+// Launch the billing flow
+                    BillingResult billingResult = billingClient.launchBillingFlow(MuaHangActivity.this, billingFlowParams);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -573,16 +822,22 @@ public class MuaHangActivity extends AppCompatActivity implements View.OnClickLi
                     sku = SKU_MAX_PROMOTE_PACKAGE;
                 }
                 try {
-                    SkuDetails skuDetails = getSkuDetailsFromList(sku);
-                    if (skuDetails != null) {
-                        BillingFlowParams billingFlowParams = BillingFlowParams.newBuilder()
-                                .setSkuDetails(skuDetails)
-                                .build();
-                        int responseCode = billingClient.launchBillingFlow(this, billingFlowParams).getResponseCode();
-                        if (responseCode != BillingClient.BillingResponseCode.OK) {
-                            Toast.makeText(getApplicationContext(), getString(R.string.mua_that_bai), Toast.LENGTH_SHORT).show();
-                        }
-                    }
+                    ImmutableList productDetailsParamsList =
+                            ImmutableList.of(
+                                    BillingFlowParams.ProductDetailsParams.newBuilder()
+                                            // retrieve a value for "productDetails" by calling queryProductDetailsAsync()
+                                            .setProductDetails(getProductDetailsFromList(sku))
+                                            // to get an offer token, call ProductDetails.getSubscriptionOfferDetails()
+                                            // for a list of offers that are available to the user
+                                            .build()
+                            );
+
+                    BillingFlowParams billingFlowParams = BillingFlowParams.newBuilder()
+                            .setProductDetailsParamsList(productDetailsParamsList)
+                            .build();
+
+// Launch the billing flow
+                    BillingResult billingResult = billingClient.launchBillingFlow(MuaHangActivity.this, billingFlowParams);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -590,48 +845,69 @@ public class MuaHangActivity extends AppCompatActivity implements View.OnClickLi
 
             case R.id.vip_account_month:
                 try {
-                    SkuDetails skuDetails = getSkuDetailsFromList(SKU_VIP_MONTHLY);
-                    if (skuDetails != null) {
-                        BillingFlowParams billingFlowParams = BillingFlowParams.newBuilder()
-                                .setSkuDetails(skuDetails)
-                                .build();
-                        int responseCode = billingClient.launchBillingFlow(this, billingFlowParams).getResponseCode();
-                        if (responseCode != BillingClient.BillingResponseCode.OK) {
-                            Toast.makeText(getApplicationContext(), getString(R.string.mua_that_bai), Toast.LENGTH_SHORT).show();
-                        }
-                    }
+                    ImmutableList productDetailsParamsList =
+                            ImmutableList.of(
+                                    BillingFlowParams.ProductDetailsParams.newBuilder()
+                                            // retrieve a value for "productDetails" by calling queryProductDetailsAsync()
+                                            .setProductDetails(getProductDetailsFromList(SKU_VIP_MONTHLY))
+                                            // to get an offer token, call ProductDetails.getSubscriptionOfferDetails()
+                                            // for a list of offers that are available to the user
+                                            .setOfferToken(getProductDetailsFromList(SKU_VIP_MONTHLY).getSubscriptionOfferDetails().get(0).getOfferToken())
+                                            .build()
+                            );
+
+                    BillingFlowParams billingFlowParams = BillingFlowParams.newBuilder()
+                            .setProductDetailsParamsList(productDetailsParamsList)
+                            .build();
+
+// Launch the billing flow
+                    BillingResult billingResult = billingClient.launchBillingFlow(MuaHangActivity.this, billingFlowParams);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
                 break;
             case R.id.vip_account_three_months:
                 try {
-                    SkuDetails skuDetails = getSkuDetailsFromList(SKU_VIP_THREE_MONTHS);
-                    if (skuDetails != null) {
-                        BillingFlowParams billingFlowParams = BillingFlowParams.newBuilder()
-                                .setSkuDetails(skuDetails)
-                                .build();
-                        int responseCode = billingClient.launchBillingFlow(this, billingFlowParams).getResponseCode();
-                        if (responseCode != BillingClient.BillingResponseCode.OK) {
-                            Toast.makeText(getApplicationContext(), getString(R.string.mua_that_bai), Toast.LENGTH_SHORT).show();
-                        }
-                    }
+                    ImmutableList productDetailsParamsList =
+                            ImmutableList.of(
+                                    BillingFlowParams.ProductDetailsParams.newBuilder()
+                                            // retrieve a value for "productDetails" by calling queryProductDetailsAsync()
+                                            .setProductDetails(getProductDetailsFromList(SKU_VIP_THREE_MONTHS))
+                                            // to get an offer token, call ProductDetails.getSubscriptionOfferDetails()
+                                            // for a list of offers that are available to the user
+                                            .setOfferToken(getProductDetailsFromList(SKU_VIP_THREE_MONTHS).getSubscriptionOfferDetails().get(0).getOfferToken())
+                                            .build()
+                            );
+
+                    BillingFlowParams billingFlowParams = BillingFlowParams.newBuilder()
+                            .setProductDetailsParamsList(productDetailsParamsList)
+                            .build();
+
+// Launch the billing flow
+                    BillingResult billingResult = billingClient.launchBillingFlow(MuaHangActivity.this, billingFlowParams);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
                 break;
             case R.id.vip_account_year:
                 try {
-                    SkuDetails skuDetails = getSkuDetailsFromList(SKU_VIP_YEARLY);
-                    if (skuDetails != null) {
-                        BillingFlowParams billingFlowParams = BillingFlowParams.newBuilder()
-                                .setSkuDetails(skuDetails)
-                                .build();
-                        int responseCode = billingClient.launchBillingFlow(this, billingFlowParams).getResponseCode();
-                        if (responseCode != BillingClient.BillingResponseCode.OK) {
-                            Toast.makeText(getApplicationContext(), getString(R.string.mua_that_bai), Toast.LENGTH_SHORT).show();
-                        }
-                    }
+                    ImmutableList productDetailsParamsList =
+                            ImmutableList.of(
+                                    BillingFlowParams.ProductDetailsParams.newBuilder()
+                                            // retrieve a value for "productDetails" by calling queryProductDetailsAsync()
+                                            .setProductDetails(getProductDetailsFromList(SKU_VIP_YEARLY))
+                                            // to get an offer token, call ProductDetails.getSubscriptionOfferDetails()
+                                            // for a list of offers that are available to the user
+                                            .setOfferToken(getProductDetailsFromList(SKU_VIP_YEARLY).getSubscriptionOfferDetails().get(0).getOfferToken())
+                                            .build()
+                            );
+
+                    BillingFlowParams billingFlowParams = BillingFlowParams.newBuilder()
+                            .setProductDetailsParamsList(productDetailsParamsList)
+                            .build();
+
+// Launch the billing flow
+                    BillingResult billingResult = billingClient.launchBillingFlow(MuaHangActivity.this, billingFlowParams);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -640,11 +916,16 @@ public class MuaHangActivity extends AppCompatActivity implements View.OnClickLi
     }
 
     private void BuySuccessToFireBase(Purchase purchase, final long buyCoin) {
+        Log.d("khangPurchase", "BuySuccessToFireBase: " + purchase);
         final DatabaseReference purchaseRef = FirebaseUtil.getUSubPurchaseRef();
-        purchaseRef.child(mFirebaseUser.getUid()).push().setValue(new LogPurchase(mFirebaseUser.getUid(), purchase.getOrderId(), "tikfans.tikplus", purchase.getSku(), purchase.getPurchaseTime(), purchase.getPurchaseToken(), buyCoin));
-        if (getApplicationContext() != null) {
-            Toast.makeText(getApplicationContext(), String.format(getString(R.string.mua_thanh_cong), buyCoin), Toast.LENGTH_SHORT).show();
-        }
+        String purchaseTime = "" + purchase.getPurchaseTime();// de tranh 1 purchase duoc cong coin nhieu lan, thay vi push key len firebase, thi dung purchaseTime lam key de tranh tao lieu logPurchase cho 1 purchase dan den tang coin nhieu lan.
+        purchaseRef.child(mFirebaseUser.getUid()).child(purchaseTime).setValue(new LogPurchase(mFirebaseUser.getUid(), purchase.getOrderId(), "tikfans.tikplus", purchase.getProducts().get(0), purchase.getPurchaseTime(), purchase.getPurchaseToken(), buyCoin));
+        MuaHangActivity.this.runOnUiThread(new Runnable() {
+            public void run() {
+                hideProgressDialog();
+                Toast.makeText(MuaHangActivity.this, String.format(getString(R.string.mua_thanh_cong), buyCoin), Toast.LENGTH_LONG).show();
+            }
+        });
     }
 
 

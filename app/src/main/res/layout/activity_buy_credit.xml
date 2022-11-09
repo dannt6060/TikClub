@@ -44,6 +44,19 @@
                     android:textSize="20dp"
                     android:textStyle="bold" />
 
+                <tikfans.tikplus.util.CustomTextView
+                    android:id="@+id/coin"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_alignParentEnd="true"
+                    android:layout_centerVertical="true"
+                    android:layout_marginEnd="16dp"
+                    android:drawablePadding="8dp"
+                    android:text="0"
+                    android:textColor="@color/white"
+                    android:textSize="17dp"
+                    app:drawableEndCompat="@drawable/ic_money" />
+
             </RelativeLayout>
         </androidx.appcompat.widget.Toolbar>
 
@@ -549,6 +562,44 @@
                             android:layout_marginTop="5dp"
                             android:text="@string/yearly_description"
                             android:textSize="12dp" />
+                    </RelativeLayout>
+                </androidx.cardview.widget.CardView>
+
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/vip_account_manage_subcription_cardview"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:layout_marginStart="5dp"
+                    android:layout_marginTop="5dp"
+                    android:layout_marginEnd="5dp"
+                    android:layout_marginBottom="3dp"
+                    android:clickable="true"
+                    android:foreground="?android:attr/selectableItemBackground"
+                    card_view:cardCornerRadius="2dp"
+                    card_view:contentPadding="10dp">
+
+                    <RelativeLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:layout_margin="10dp">
+
+                        <TextView
+                            android:id="@+id/txt_manage_subscription"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/manage_subscription_on_google_play"
+                            android:textAllCaps="true"
+                            android:textSize="15dp" />
+
+                        <Button
+                            android:id="@+id/btn_google_play_subscription"
+                            style="@style/Widget.AppCompat.Button.Colored"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_below="@id/txt_manage_subscription"
+                            android:text="@string/google_play_subscription"></Button>
+
                     </RelativeLayout>
                 </androidx.cardview.widget.CardView>
 

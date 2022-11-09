@@ -1,5 +1,6 @@
 package tikfans.tikplus;
 
+import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.app.ProgressDialog;
@@ -18,6 +19,7 @@ import android.view.View;
 import android.view.WindowManager;
 import android.widget.ImageView;
 import android.widget.RatingBar;
+import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -39,12 +41,15 @@ import com.android.billingclient.api.BillingResult;
 import com.android.billingclient.api.ConsumeParams;
 import com.android.billingclient.api.ConsumeResponseListener;
 import com.android.billingclient.api.Purchase;
+import com.android.billingclient.api.PurchasesResponseListener;
 import com.android.billingclient.api.PurchasesUpdatedListener;
+import com.android.billingclient.api.QueryPurchasesParams;
 import com.android.billingclient.api.SkuDetails;
 import com.android.billingclient.api.SkuDetailsParams;
 import com.android.billingclient.api.SkuDetailsResponseListener;
 import com.google.android.gms.ads.MobileAds;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.google.android.material.navigation.NavigationBarView;
 import com.google.android.material.navigation.NavigationView;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
@@ -57,8 +62,14 @@ import com.google.firebase.database.Transaction;
 import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.remoteconfig.FirebaseRemoteConfig;
 import com.squareup.picasso.Picasso;
-import com.unity3d.ads.IUnityAdsListener;
+import com.unity3d.ads.IUnityAdsInitializationListener;
+import com.unity3d.ads.IUnityAdsLoadListener;
+import com.unity3d.ads.IUnityAdsShowListener;
 import com.unity3d.ads.UnityAds;
+import com.unity3d.ads.UnityAdsShowOptions;
+import com.unity3d.services.banners.BannerErrorInfo;
+import com.unity3d.services.banners.BannerView;
+import com.unity3d.services.banners.UnityBannerSize;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -70,6 +81,7 @@ import tikfans.tikplus.model.LogAdsReward;
 import tikfans.tikplus.model.ResultUser;
 import tikfans.tikplus.model.ResultVideo;
 import tikfans.tikplus.subviewlike.LikecheoFragment;
+import tikfans.tikplus.subviewlike.SubTaoChienDichActivity;
 import tikfans.tikplus.subviewlike.SubcheoFragment;
 import tikfans.tikplus.util.AppUtil;
 import tikfans.tikplus.util.CircleTransform;
@@ -92,7 +104,7 @@ import static tikfans.tikplus.util.AppUtil.SKU_SMALL_PACKAGE;
 
 
 public class MainActivity extends AppCompatActivity
-        implements NavigationView.OnNavigationItemSelectedListener, ChienDichFragment.OnFragmentInteractionListener, LikecheoFragment.OnFragmentInteractionListener, SubcheoFragment.OnFragmentInteractionListener, ChatFragment.OnFragmentInteractionListener {
+        implements NavigationView.OnNavigationItemSelectedListener, ChienDichFragment.OnFragmentInteractionListener, LikecheoFragment.OnFragmentInteractionListener, SubcheoFragment.OnFragmentInteractionListener, ChatFragment.OnFragmentInteractionListener, IUnityAdsInitializationListener {
 
     private ChienDichFragment mChienDichFragment;
     private FragmentManager fragmentMgr;
@@ -106,13 +118,6 @@ public class MainActivity extends AppCompatActivity
     private Dialog mRatingDialog;
     private long coinToUpdate = 0;
 
-    //unity
-    private View rootView;
-    private String unityGameID = "3737693";
-    private boolean testMode = false;
-    private String placementId = "rewardedVideo";
-    final UnityAdsListener myAdsListener = new UnityAdsListener();
-
     public static final int REQUEST_ACCOUNT_PICKER = 1000;
     public static final int REQUEST_AUTHORIZATION = 1001;
     public static final int REQUEST_GOOGLE_PLAY_SERVICES = 1002;
@@ -120,47 +125,22 @@ public class MainActivity extends AppCompatActivity
     private static final String PREF_ACCOUNT_NAME = "accountName";
     private SQLiteDatabaseHandler db;
 
-    private class UnityAdsListener implements IUnityAdsListener {
-
-        public void onUnityAdsReady(String placementId) {
-            // Implement functionality for an ad being ready to show.
-            Log.d("Khang", "onUnityAdsReady: " + placementId);
-        }
-
-        @Override
-        public void onUnityAdsStart(String placementId) {
-            // Implement functionality for a user starting to watch an ad.
-            Log.d("Khang", "onUnityAdsStart: " + placementId);
-        }
-
-        @Override
-        public void onUnityAdsFinish(String placementId, UnityAds.FinishState finishState) {
-            // Implement conditional logic for each ad completion status:
-            Log.d("Khang", "onUnityAdsFinish : " + placementId + " / " + finishState);
-            if (finishState == UnityAds.FinishState.COMPLETED) {
-                onRewarded();
-                // Reward the user for watching the ad to completion.
-            } else if (finishState == UnityAds.FinishState.SKIPPED) {
-                // Do not reward the user for skipping the ad.
-            } else if (finishState == UnityAds.FinishState.ERROR) {
-                // Log an error.
-            }
-        }
-
-        @Override
-        public void onUnityAdsError(UnityAds.UnityAdsError error, String message) {
-            // Implement functionality for a Unity Ads service error occurring.
-            Log.d("Khang", "onUnityAdsError: " + message + " / " + error.toString());
-        }
-    }
+    //unity
+    private View rootView;
+    private String unityGameID = "3737693";
+    private boolean testMode = false;
+    private String placementId = "rewardedVideo";
+    String topAdUnitId = "banner";
+    RelativeLayout topBannerView;
+    BannerView topBanner;
 
     private void onRewarded() {
         Toast.makeText(this, String.format(getString(R.string.nhan_duoc_coin), FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_VIDEO_REWARD)), Toast.LENGTH_SHORT).show();
         FirebaseUtil.getLogAdsRewardCurrentUserRef().setValue(new LogAdsReward(FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_VIDEO_REWARD), ServerValue.TIMESTAMP));
     }
 
-    private BottomNavigationView.OnNavigationItemSelectedListener mOnNavigationItemSelectedListener
-            = new BottomNavigationView.OnNavigationItemSelectedListener() {
+    private NavigationBarView.OnItemSelectedListener mOnNavigationItemSelectedListener
+            = new NavigationBarView.OnItemSelectedListener() {
 
         @Override
         public boolean onNavigationItemSelected(@NonNull MenuItem item) {
@@ -187,6 +167,8 @@ public class MainActivity extends AppCompatActivity
     };
 
     //for promote pacakge
+    CardView mPromoVipAccountLayout;
+    ImageView mClosePromoteVipAccountImageView;
     CardView mPromoPackageLayout;
     ImageView mClosePromotPackageImageView;
     TextView txtCoinBuyPromoPackage, mTxtPricePromoPackage, mTxtCountDown, txtCoinBasePromoPackage;
@@ -197,6 +179,104 @@ public class MainActivity extends AppCompatActivity
     private static final int TYPE_LARGE_PROMOTE_PACKAGE = 2;
     private static final int TYPE_MAX_PROMOTE_PACKAGE = 3;
     boolean isEnablePromotePackage = false;
+    boolean isShowPromoPackage = false;
+    boolean isShowPromoVipAccount = false;
+
+    //unity
+    // Listener for banner events:
+    private BannerView.IListener bannerListener = new BannerView.IListener() {
+        @Override
+        public void onBannerLoaded(BannerView bannerAdView) {
+            // Called when the banner is loaded.
+            Log.v("UnityAdsExample", "onBannerLoaded: " + bannerAdView.getPlacementId());
+            if (topBannerView != null && !MyChannelApplication.isVipAccount)
+                topBannerView.setVisibility(View.VISIBLE);
+            // Enable the correct button to hide the ad
+        }
+
+        @Override
+        public void onBannerFailedToLoad(BannerView bannerAdView, BannerErrorInfo errorInfo) {
+            Log.e("UnityAdsExample", "Unity Ads failed to load banner for " + bannerAdView.getPlacementId() + " with error: [" + errorInfo.errorCode + "] " + errorInfo.errorMessage);
+            // Note that the BannerErrorInfo object can indicate a no fill (see API documentation).
+            if (topBannerView != null) topBannerView.setVisibility(View.GONE);
+        }
+
+        @Override
+        public void onBannerClick(BannerView bannerAdView) {
+            // Called when a banner is clicked.
+            Log.v("UnityAdsExample", "onBannerClick: " + bannerAdView.getPlacementId());
+        }
+
+        @Override
+        public void onBannerLeftApplication(BannerView bannerAdView) {
+            // Called when the banner links out of the application.
+            Log.v("UnityAdsExample", "onBannerLeftApplication: " + bannerAdView.getPlacementId());
+        }
+    };
+
+    @Override
+    public void onInitializationComplete() {
+        Log.v("UnityAdsExample", "onInitializationComplete: ");
+        UnityAds.load(placementId, loadListener);
+    }
+
+    @Override
+    public void onInitializationFailed(UnityAds.UnityAdsInitializationError error, String message) {
+        Log.e("UnityAdsExample", "Unity Ads initialization failed with error: [" + error + "] " + message);
+    }
+
+    private IUnityAdsLoadListener loadListener = new IUnityAdsLoadListener() {
+        @Override
+        public void onUnityAdsAdLoaded(String placementId) {
+            Log.v("UnityAdsExample", "onUnityAdsAdLoaded: " + placementId);
+            isUnityAdsLoaded = true;
+        }
+
+        @Override
+        public void onUnityAdsFailedToLoad(String placementId, UnityAds.UnityAdsLoadError error, String message) {
+            Log.e("UnityAdsExample", "Unity Ads failed to load ad for " + placementId + " with error: [" + error + "] " + message);
+        }
+    };
+
+    private IUnityAdsShowListener showListener = new IUnityAdsShowListener() {
+        @Override
+        public void onUnityAdsShowFailure(String placementId, UnityAds.UnityAdsShowError error, String message) {
+            UnityAds.load(placementId, loadListener);
+            Log.e("UnityAdsExample", "Unity Ads failed to show ad for " + placementId + " with error: [" + error + "] " + message);
+        }
+
+        @Override
+        public void onUnityAdsShowStart(String placementId) {
+            Log.v("UnityAdsExample", "onUnityAdsShowStart: " + placementId);
+        }
+
+        @Override
+        public void onUnityAdsShowClick(String placementId) {
+            Log.v("UnityAdsExample", "onUnityAdsShowClick: " + placementId);
+        }
+
+        @Override
+        public void onUnityAdsShowComplete(String placementId, UnityAds.UnityAdsShowCompletionState state) {
+            UnityAds.load(placementId, loadListener);
+            Log.v("UnityAdsExample", "onUnityAdsShowComplete: " + placementId);
+            if (state.equals(UnityAds.UnityAdsShowCompletionState.COMPLETED)) {
+                onRewarded();
+            } else {
+                // Do not reward the user for skipping the ad
+            }
+        }
+    };
+
+    boolean isUnityAdsLoaded = false;
+    public void DisplayRewardedAd () {
+        if (isUnityAdsLoaded) {
+            UnityAds.show(MainActivity.this, placementId, new UnityAdsShowOptions(), showListener);
+        } else {
+            if (UnityAds.isInitialized()) {
+                UnityAds.load(placementId, loadListener);
+            }
+        }
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -220,6 +300,11 @@ public class MainActivity extends AppCompatActivity
                 .enablePendingPurchases()
                 .build();
 
+        //unity
+        UnityAds.initialize(getApplicationContext(), unityGameID, testMode, this);
+        topBanner = new BannerView(MainActivity.this, topAdUnitId, new UnityBannerSize(320, 50));
+        topBannerView = findViewById(R.id.topBanner);
+
         //for promotion package
         mClosePromotPackageImageView = findViewById(R.id.close_promote_package_image_view);
         mPromoPackageLayout = findViewById(R.id.promotion_package_layout);
@@ -240,9 +325,31 @@ public class MainActivity extends AppCompatActivity
             @Override
             public void onClick(View v) {
                 mPromoPackageLayout.setVisibility(View.GONE);
+                if (!MyChannelApplication.isVipAccount) {
+                    topBannerView.setVisibility(View.VISIBLE);
+                }
                 PreferenceUtil.saveLongPref(PreferenceUtil.LAST_CLOSE_PROMOTE_TIME, System.currentTimeMillis());
             }
         });
+
+        mPromoVipAccountLayout = findViewById((R.id.promotion_vipaccount_layout));
+        mClosePromoteVipAccountImageView = findViewById(R.id.close_promote_vip_account_image_view);
+        mPromoVipAccountLayout.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent buyIntent = new Intent(MainActivity.this, MuaHangActivity.class);
+                buyIntent.putExtra(AppUtil.VIP_ACCOUNT_EXTRA, true);
+                startActivity(buyIntent);
+            }
+        });
+        mClosePromoteVipAccountImageView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mPromoVipAccountLayout.setVisibility(View.GONE);
+                PreferenceUtil.saveLongPref(PreferenceUtil.LAST_CLOSE_PROMOTE_TIME, System.currentTimeMillis());
+            }
+        });
+
         long lastClosePromoteTime = PreferenceUtil.getLongPref(PreferenceUtil.LAST_CLOSE_PROMOTE_TIME, 0);
         if (isEnablePromotePackage && System.currentTimeMillis() - lastClosePromoteTime > 60 * 60 * 1000) {
             Date currentDate = SecureDate.getInstance().getDate();
@@ -253,7 +360,7 @@ public class MainActivity extends AppCompatActivity
             int second = currentDate.getSeconds();
             long remainTime = 24 * 60 * 60 - ((long) hour * 60 * 60 + minute * 60L + second);
             Log.d("khang", "" + day + " / " + month + " : " + hour + ":" + minute + ":" + second);
-            boolean isShowPromoPackage = false;
+            isShowPromoPackage = false;
             if (FirebaseAuth.getInstance().getCurrentUser() == null) signOut();
             long firstSignInTime = PreferenceUtil.getLongPref(PreferenceUtil.FIRST_SIGN_IN_TIME + FirebaseAuth.getInstance().getCurrentUser().getUid(), 0);
 
@@ -265,7 +372,7 @@ public class MainActivity extends AppCompatActivity
                 txtCoinBasePromoPackage.setText(String.format(getString(R.string.mua_coin), FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_PURCHASE_MINI_NEW)));
             }
             if ((day + month) % 15 == 3 || (day + month) % 15 == 11) {
-//            if ((day + month) % 3 == ) {
+//            if ((day + month) % 3 == 1) {
                 isShowPromoPackage = true;
                 typeOfPromotePackage = TYPE_LARGE_PROMOTE_PACKAGE;
                 txtCoinBuyPromoPackage.setText(String.format(getString(R.string.mua_coin), FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_PURCHASE_LARGE_NEW) * 2));
@@ -275,74 +382,28 @@ public class MainActivity extends AppCompatActivity
 //            if ((day + month) % 3 == 2) {
                 isShowPromoPackage = true;
                 typeOfPromotePackage = TYPE_MAX_PROMOTE_PACKAGE;
-                txtCoinBuyPromoPackage.setText(String.format(getString(R.string.mua_coin), FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_PURCHASE_MAX_NEW) * 150 / 100));
+                txtCoinBuyPromoPackage.setText(String.format(getString(R.string.mua_coin), FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_PURCHASE_MAX_NEW) * 120 / 100));
                 txtCoinBasePromoPackage.setText(String.format(getString(R.string.mua_coin), FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_PURCHASE_MAX_NEW)));
 
             }
             if (isShowPromoPackage) {
                 mPromoPackageLayout.setVisibility(View.VISIBLE);
+                topBannerView.setVisibility(View.GONE);
                 initTimer(remainTime);
             } else {
                 mPromoPackageLayout.setVisibility(View.GONE);
+                isShowPromoVipAccount = true;
             }
         }
-        billingClient.startConnection(new BillingClientStateListener() {
-            @Override
-            public void onBillingSetupFinished(@NonNull BillingResult billingResult) {
-                List<String> skuInAppList = new ArrayList<>();
-                //for promotion package
-                skuInAppList.add(SKU_MINI_PROMOTE_PACKAGE);
-                skuInAppList.add(SKU_LARGE_PROMOTE_PACKAGE);
-                skuInAppList.add(SKU_MAX_PROMOTE_PACKAGE);
-                SkuDetailsParams.Builder params2 = SkuDetailsParams.newBuilder();
-                params2.setSkusList(skuInAppList).setType(BillingClient.SkuType.INAPP);
-                billingClient.querySkuDetailsAsync(params2.build(),
-                        new SkuDetailsResponseListener() {
-                            @Override
-                            public void onSkuDetailsResponse(@NonNull BillingResult billingResult, @Nullable List<SkuDetails> list) {
-                                try {
-                                    for (int i = 0; i < list.size(); i++) {
-                                        SkuDetails skuDetail = list.get(i);
-                                        String textPrice = skuDetail.getPrice();
-                                        if (skuDetail.getSku().equals(SKU_MINI_PROMOTE_PACKAGE) && typeOfPromotePackage == TYPE_MINI_PROMOTE_PACKAGE) {
-                                            mTxtPricePromoPackage.setText(textPrice);
-                                        }
-                                        if (skuDetail.getSku().equals(SKU_LARGE_PROMOTE_PACKAGE) && typeOfPromotePackage == TYPE_LARGE_PROMOTE_PACKAGE) {
-                                            mTxtPricePromoPackage.setText(textPrice);
-                                        }
-                                        if (skuDetail.getSku().equals(SKU_MAX_PROMOTE_PACKAGE) && typeOfPromotePackage == TYPE_MAX_PROMOTE_PACKAGE) {
-                                            mTxtPricePromoPackage.setText(textPrice);
-                                        }
-                                    }
-                                } catch (Exception e) {
-                                    e.printStackTrace();
-                                }
-                            }
-                        });
 
-                Purchase.PurchasesResult purchasesResultSubs = billingClient.queryPurchases(BillingClient.SkuType.SUBS);
-                if (purchasesResultSubs != null && purchasesResultSubs.getPurchasesList() != null) {
-                    for (Purchase purchase : purchasesResultSubs.getPurchasesList()) {
-                        handlePurchase(purchase);
-                    }
-                }
-
-                Purchase.PurchasesResult purchasesResultInApp = billingClient.queryPurchases(BillingClient.SkuType.INAPP);
-                if (purchasesResultInApp != null && purchasesResultInApp.getPurchasesList() != null) {
-                    for (Purchase purchase : purchasesResultInApp.getPurchasesList()) {
-                        handlePurchase(purchase);
-                    }
-                }
-            }
-
-            @Override
-            public void onBillingServiceDisconnected() {
-
-            }
-        });
+        billingClient = BillingClient.newBuilder(getApplicationContext())
+                .setListener(purchaseUpdateListener)
+                .enablePendingPurchases()
+                .build();
+        startBillingConnectTion();
 
         BottomNavigationView navigation = findViewById(R.id.navigation);
-        navigation.setOnNavigationItemSelectedListener(mOnNavigationItemSelectedListener);
+        navigation.setOnItemSelectedListener(mOnNavigationItemSelectedListener);
         navigation.setSelectedItemId(R.id.navigation_sub);
         DrawerLayout drawer = findViewById(R.id.drawer_layout);
 
@@ -440,6 +501,59 @@ public class MainActivity extends AppCompatActivity
                     .transform(new CircleTransform())
                     .into(mImageViewPhoto);
         }
+    }
+
+    private void startBillingConnectTion() {
+        billingClient.startConnection(new BillingClientStateListener() {
+            @Override
+            public void onBillingServiceDisconnected() {
+                startBillingConnectTion();
+            }
+
+            @Override
+            public void onBillingSetupFinished(@NonNull BillingResult billingResult) {
+                billingClient.queryPurchasesAsync(
+                        QueryPurchasesParams.newBuilder()
+                                .setProductType(BillingClient.ProductType.SUBS)
+                                .build(),
+                        new PurchasesResponseListener() {
+                            public void onQueryPurchasesResponse(BillingResult billingResult, List<com.android.billingclient.api.Purchase> purchases) {
+                                // check billingResult
+                                // process returned purchase list, e.g. display the plans user owns
+                                Log.d("KhangPurchase", "onQueryPurchasesResponse for sub: " + purchases.toString());
+                                for (Purchase purchase : purchases) {
+                                    handlePurchase(purchase);
+                                }
+                                if (MyChannelApplication.isVipAccount) {
+                                    MainActivity.this.runOnUiThread(new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            topBannerView.setVisibility(View.GONE);
+                                            mPromoVipAccountLayout.setVisibility(View.GONE);
+                                        }
+                                    });
+                                } else {
+                                    MainActivity.this.runOnUiThread(new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            try {
+                                                topBanner.setListener(bannerListener);
+                                                topBanner.load();
+                                                topBannerView.addView(topBanner);
+                                                if (isShowPromoVipAccount) {
+                                                    mPromoVipAccountLayout.setVisibility(View.VISIBLE);
+                                                }
+                                            } catch (Exception e) {
+                                                e.printStackTrace();
+                                            }
+                                        }
+                                    });
+                                }
+                            }
+                        }
+                );
+            }
+        });
     }
 
     private void initTimer(long timerCount) {
@@ -608,13 +722,8 @@ public class MainActivity extends AppCompatActivity
             buyIntent.putExtra(AppUtil.VIP_ACCOUNT_EXTRA, false);
             startActivity(buyIntent);
         } else if (id == R.id.nav_xem_quang_cao) {
-            Log.d("Khang", "showads");
-            if (UnityAds.isReady(placementId)) {
-                UnityAds.show(this, placementId);
-            } else {
-                Toast.makeText(this, getString(R.string.tai_ads_loi), Toast.LENGTH_SHORT).show();
-                UnityAds.initialize(this, unityGameID, myAdsListener, testMode);
-            }
+           Log.d("Khang", "showads");
+           DisplayRewardedAd();
         } else if (id == R.id.nav_subchat) {
             Uri uri = Uri.parse("market://details?id=" + FirebaseRemoteConfig.getInstance().getString(RemoteConfigUtil.SUBCHAT_PACKAGE));
             Intent goToMarket = new Intent(Intent.ACTION_VIEW, uri);
@@ -762,9 +871,10 @@ public class MainActivity extends AppCompatActivity
 //        progressDialog.show();
     }
 
+
     private void showDialog() {
         Random r = new Random();
-        int i1 = r.nextInt(99 - 0) + 0;
+        int i1 = r.nextInt(99 - 0);
         i1 = i1 % 8;
         Log.d("Khang", "case: " + i1);
         boolean isRated = PreferenceUtil.getBooleanPref(PreferenceUtil.IS_RATED, false);
@@ -877,7 +987,7 @@ public class MainActivity extends AppCompatActivity
     };
 
     private boolean isConsumePurchase(Purchase purchase) {
-        String sku = purchase.getSku();
+        String sku = purchase.getProducts().get(0);
         if (sku.equals(SKU_HUGE_PACKAGE) || sku.equals(SKU_LARGE_PACKAGE) || sku.equals(SKU_MAX_PACKAGE) || sku.equals(SKU_MINI_PACKAGE) || sku.equals(SKU_SMALL_PACKAGE)) {
             return true;
         }
@@ -903,20 +1013,26 @@ public class MainActivity extends AppCompatActivity
                         if (billingResult.getResponseCode() == BillingClient.BillingResponseCode.OK) {
                             // Handle the success of the consume operation.
                             hideProgressDialog();
-                            Log.d("Khang", "consume: " + purchase.getSku() + ": " + purchase.getOrderId());
+                            Log.d("Khang", "consume: " + purchase.getProducts().get(0) + ": " + purchase.getOrderId());
 
-                            if (purchase.getSku().equals(SKU_MINI_PACKAGE)) {
+                            if (purchase.getProducts().get(0).equals(SKU_MINI_PACKAGE)) {
                                 BuySuccessToFireBase(purchase, FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_PURCHASE_MINI_NEW));
-                            } else if (purchase.getSku().equals(SKU_SMALL_PACKAGE)) {
+                            } else if (purchase.getProducts().get(0).equals(SKU_SMALL_PACKAGE)) {
                                 BuySuccessToFireBase(purchase, FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_PURCHASE_SMALL_NEW));
-                            } else if (purchase.getSku().equals(SKU_LARGE_PACKAGE)) {
+                            } else if (purchase.getProducts().get(0).equals(SKU_LARGE_PACKAGE)) {
                                 BuySuccessToFireBase(purchase, FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_PURCHASE_LARGE_NEW));
-                            } else if (purchase.getSku().equals(SKU_HUGE_PACKAGE)) {
+                            } else if (purchase.getProducts().get(0).equals(SKU_HUGE_PACKAGE)) {
                                 BuySuccessToFireBase(purchase, FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_PURCHASE_HUGE_NEW));
-                            } else if (purchase.getSku().equals(SKU_MAX_PACKAGE)) {
+                            } else if (purchase.getProducts().get(0).equals(SKU_MAX_PACKAGE)) {
                                 BuySuccessToFireBase(purchase, FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_PURCHASE_MAX_NEW));
+                            } else if (purchase.getProducts().get(0).equals(SKU_MINI_PROMOTE_PACKAGE)) {
+                                BuySuccessToFireBase(purchase, FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_PURCHASE_MINI_NEW) * 2);
+                            } else if (purchase.getProducts().get(0).equals(SKU_LARGE_PROMOTE_PACKAGE)) {
+                                BuySuccessToFireBase(purchase, FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_PURCHASE_LARGE_NEW) * 2);
+                            } else if (purchase.getProducts().get(0).equals(SKU_MAX_PROMOTE_PACKAGE)) {
+                                BuySuccessToFireBase(purchase, FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_PURCHASE_MAX_NEW) * 120 / 100);
                             }
-
+                            PreferenceUtil.saveLongPref(PreferenceUtil.LAST_CLOSE_PROMOTE_TIME, System.currentTimeMillis());
                         }
                     }
                 };
@@ -929,13 +1045,12 @@ public class MainActivity extends AppCompatActivity
                                     .build();
                     billingClient.acknowledgePurchase(acknowledgePurchaseParams, acknowledgePurchaseResponseListener);
                 }
-                Toast.makeText(getApplicationContext(), getString(R.string.update_vip_account_success), Toast.LENGTH_SHORT).show();
                 FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
                 MyChannelApplication.isVipAccount = true;
                 if (user == null) {
                     return;
                 }
-                FirebaseUtil.getSubscriptionInfoRef().setValue(new LogPurchase(user.getUid(), purchase.getOrderId(), "tikfans.tikplus", purchase.getSku(), purchase.getPurchaseTime(), purchase.getPurchaseToken(), 0));
+                FirebaseUtil.getSubscriptionInfoRef().setValue(new LogPurchase(user.getUid(), purchase.getOrderId(), "tikfans.tikplus", purchase.getProducts().get(0), purchase.getPurchaseTime(), purchase.getPurchaseToken(), 0));
                 Log.d("Khang", "subscription:" + purchase.toString());
                 FirebaseUtil.getVipAccountRef().setValue(MyChannelApplication.isVipAccount);
             }
@@ -944,7 +1059,6 @@ public class MainActivity extends AppCompatActivity
 
     private BillingClient billingClient;
 
-    private List<SkuDetails> skuDetailsList;
 
     private void BuySuccessToFireBase(Purchase purchase, final long buyCoin) {
         FirebaseUser mFirebaseUser = FirebaseAuth.getInstance().getCurrentUser();
@@ -952,9 +1066,16 @@ public class MainActivity extends AppCompatActivity
             return;
         }
         final DatabaseReference purchaseRef = FirebaseUtil.getUSubPurchaseRef();
-        purchaseRef.child(mFirebaseUser.getUid()).child(purchase.getPurchaseToken()).setValue(new LogPurchase(mFirebaseUser.getUid(), purchase.getOrderId(), "tikfans.tikplus", purchase.getSku(), purchase.getPurchaseTime(), purchase.getPurchaseToken(), buyCoin));
-        if (getApplicationContext() != null) {
-            Toast.makeText(getApplicationContext(), String.format(getString(R.string.mua_thanh_cong), buyCoin), Toast.LENGTH_SHORT).show();
+        try {
+            String purchaseTime = "" + purchase.getPurchaseTime();// de tranh 1 purchase duoc cong coin nhieu lan, thay vi push key len firebase, thi dung purchaseTime lam key de tranh tao lieu logPurchase cho 1 purchase dan den tang coin nhieu lan.
+            purchaseRef.child(mFirebaseUser.getUid()).child(purchaseTime).setValue(new LogPurchase(mFirebaseUser.getUid(), purchase.getOrderId(), "tikfans.tikplus", purchase.getProducts().get(0), purchase.getPurchaseTime(), purchase.getPurchaseToken(), buyCoin));
+            MainActivity.this.runOnUiThread(new Runnable() {
+                public void run() {
+                    Toast.makeText(getApplicationContext(), String.format(getString(R.string.mua_thanh_cong), buyCoin), Toast.LENGTH_SHORT).show();
+                }
+            });
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 

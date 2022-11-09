@@ -1,5 +1,7 @@
 package tikfans.tikplus.subviewlike;
 
+import static com.unity3d.scar.adapter.common.Utils.runOnUiThread;
+
 import android.app.Activity;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -47,7 +49,6 @@ import tikfans.tikplus.util.CircleTransform;
 import tikfans.tikplus.util.FirebaseUtil;
 import tikfans.tikplus.util.SecureDate;
 
-import static com.unity3d.services.core.misc.Utilities.runOnUiThread;
 
 public class LikeChiTietChienDichAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     private Context mContext;
@@ -99,29 +100,31 @@ public class LikeChiTietChienDichAdapter extends RecyclerView.Adapter<RecyclerVi
 
                     if (campaign != null && campaign.getVideoId() != null && campaign.getVideoId().equals(itemVideo.getId())) {
                         String img = itemVideo.getImageUrl();
-                        if (campaignDetailHeaderViewHolder != null) {
-                            Picasso.get().load(img).transform(new CircleTransform())
-                                    .into(campaignDetailHeaderViewHolder.imgVideoThumb);
-                        }
-                        final DatabaseReference campaignCurrentRef = FirebaseUtil.getLikeCampaignsRef().child(campaign.getKey());
-                        campaignCurrentRef.runTransaction(new Transaction.Handler() {
-                            @NonNull
-                            @Override
-                            public Transaction.Result doTransaction(@NonNull MutableData mutableData) {
-                                LikeCampaign currentCampaign = mutableData.getValue(LikeCampaign.class);
-                                if (currentCampaign == null) {
+                        if (img != null) {
+                            if (campaignDetailHeaderViewHolder != null) {
+                                Picasso.get().load(img).transform(new CircleTransform())
+                                        .into(campaignDetailHeaderViewHolder.imgVideoThumb);
+                            }
+                            final DatabaseReference campaignCurrentRef = FirebaseUtil.getLikeCampaignsRef().child(campaign.getKey());
+                            campaignCurrentRef.runTransaction(new Transaction.Handler() {
+                                @NonNull
+                                @Override
+                                public Transaction.Result doTransaction(@NonNull MutableData mutableData) {
+                                    LikeCampaign currentCampaign = mutableData.getValue(LikeCampaign.class);
+                                    if (currentCampaign == null) {
+                                        return Transaction.success(mutableData);
+                                    }
+                                    currentCampaign.setVideoThumb(img);
+                                    // Set value and report transaction success
+                                    mutableData.setValue(currentCampaign);
                                     return Transaction.success(mutableData);
                                 }
-                                currentCampaign.setVideoThumb(img);
-                                // Set value and report transaction success
-                                mutableData.setValue(currentCampaign);
-                                return Transaction.success(mutableData);
-                            }
 
-                            @Override
-                            public void onComplete(@Nullable DatabaseError databaseError, boolean b, @Nullable DataSnapshot dataSnapshot) {
-                            }
-                        });
+                                @Override
+                                public void onComplete(@Nullable DatabaseError databaseError, boolean b, @Nullable DataSnapshot dataSnapshot) {
+                                }
+                            });
+                        }
                     }
                 }
             }

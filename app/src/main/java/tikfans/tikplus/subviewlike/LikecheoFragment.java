@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Random;
 
+import android.app.Activity;
 import android.app.ProgressDialog;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
@@ -41,11 +42,6 @@ import androidx.fragment.app.Fragment;
 
 import com.google.android.gms.ads.AdRequest;
 import com.google.android.gms.ads.AdView;
-import com.google.android.gms.ads.InterstitialAd;
-import com.google.android.gms.ads.MobileAds;
-import com.google.android.gms.ads.reward.RewardItem;
-import com.google.android.gms.ads.reward.RewardedVideoAd;
-import com.google.android.gms.ads.reward.RewardedVideoAdListener;
 import com.google.api.client.extensions.android.http.AndroidHttp;
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential;
 import com.google.api.client.http.HttpTransport;
@@ -65,11 +61,16 @@ import com.google.firebase.database.Transaction;
 import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.remoteconfig.FirebaseRemoteConfig;
 import com.squareup.picasso.Picasso;
-import com.unity3d.ads.IUnityAdsListener;
+import com.unity3d.ads.IUnityAdsInitializationListener;
+import com.unity3d.ads.IUnityAdsLoadListener;
+import com.unity3d.ads.IUnityAdsShowListener;
 import com.unity3d.ads.UnityAds;
+import com.unity3d.ads.UnityAdsShowOptions;
+import com.unity3d.services.banners.BannerErrorInfo;
+import com.unity3d.services.banners.BannerView;
 import com.unity3d.services.banners.IUnityBannerListener;
+import com.unity3d.services.banners.UnityBannerSize;
 import com.unity3d.services.banners.UnityBanners;
-import com.unity3d.services.banners.view.BannerPosition;
 
 
 import tikfans.tikplus.BuildConfig;
@@ -93,16 +94,17 @@ import tikfans.tikplus.util.RemoteConfigUtil;
 import tikfans.tikplus.util.SecureDate;
 
 import static android.app.Activity.RESULT_OK;
-import static com.unity3d.services.core.misc.Utilities.runOnUiThread;
-import static com.unity3d.services.core.properties.ClientProperties.getApplicationContext;
+import static com.unity3d.scar.adapter.common.Utils.runOnUiThread;
 import static tikfans.tikplus.util.AppUtil.LIKE_CAMPAIGN_TYPE;
 import static tikfans.tikplus.util.FirebaseUtil.CAMPAIGN_LAST_CHANGE_TIME_STAMP;
 
 import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
 
 
 public class LikecheoFragment extends Fragment
-        implements View.OnClickListener, RewardedVideoAdListener, IUnityAdsListener {
+        implements View.OnClickListener, IUnityAdsInitializationListener {
     // TODO: Rename parameter arguments, choose names that match
     // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
     private static final String ARG_PARAM1 = "param1";
@@ -143,10 +145,8 @@ public class LikecheoFragment extends Fragment
 
     private CountDownTimer mCountDownTimer;
     private int timerCount = 10;
-    private RewardedVideoAd mRewardedVideoAd;
     private Context mContext;
     private AdView mAdView;
-    private InterstitialAd mInterstitialAd;
     private String myUserName;
     private long mLastTimeQuery = 0;
     private boolean isGotAllSubscribedList = false;
@@ -159,13 +159,113 @@ public class LikecheoFragment extends Fragment
     private String unityGameID = "3737693";
     private boolean testMode = false;
     private String placementId = "rewardedVideo";
-    final UnityAdsListener myAdsListener = new UnityAdsListener();
     private View bannerView;
     private int loadBannerViewTryCount = 0;
 
     public LikecheoFragment() {
         // Required empty public constructor
     }
+
+    @Override
+    public void onInitializationComplete() {
+        Log.v("UnityAdsExample", "onInitializationComplete: ");
+        UnityAds.load(placementId, loadListener);
+    }
+
+    @Override
+    public void onInitializationFailed(UnityAds.UnityAdsInitializationError error, String message) {
+        Log.e("UnityAdsExample", "Unity Ads initialization failed with error: [" + error + "] " + message);
+    }
+
+    private IUnityAdsLoadListener loadListener = new IUnityAdsLoadListener() {
+        @Override
+        public void onUnityAdsAdLoaded(String placementId) {
+            isUnityAdsLoaded = true;
+        }
+
+        @Override
+        public void onUnityAdsFailedToLoad(String placementId, UnityAds.UnityAdsLoadError error, String message) {
+            Log.e("UnityAdsExample", "Unity Ads failed to load ad for " + placementId + " with error: [" + error + "] " + message);
+        }
+    };
+
+    private IUnityAdsShowListener showListener = new IUnityAdsShowListener() {
+        @Override
+        public void onUnityAdsShowFailure(String placementId, UnityAds.UnityAdsShowError error, String message) {
+            UnityAds.load(placementId, loadListener);
+            Log.e("UnityAdsExample", "Unity Ads failed to show ad for " + placementId + " with error: [" + error + "] " + message);
+        }
+
+        @Override
+        public void onUnityAdsShowStart(String placementId) {
+            Log.v("UnityAdsExample", "onUnityAdsShowStart: " + placementId);
+        }
+
+        @Override
+        public void onUnityAdsShowClick(String placementId) {
+            Log.v("UnityAdsExample", "onUnityAdsShowClick: " + placementId);
+        }
+
+        @Override
+        public void onUnityAdsShowComplete(String placementId, UnityAds.UnityAdsShowCompletionState state) {
+            UnityAds.load(placementId, loadListener);
+            Log.v("UnityAdsExample", "onUnityAdsShowComplete: " + placementId);
+            if (state.equals(UnityAds.UnityAdsShowCompletionState.COMPLETED)) {
+                onRewarded();
+            } else {
+                // Do not reward the user for skipping the ad
+            }
+        }
+    };
+    boolean isUnityAdsLoaded = false;
+    public void DisplayRewardedAd () {
+        if (isUnityAdsLoaded) {
+            UnityAds.show(getActivity(), placementId, new UnityAdsShowOptions(), showListener);
+        } else {
+            if (UnityAds.isInitialized()) {
+                UnityAds.load(placementId, loadListener);
+            }
+        }
+    }
+
+    //for banner
+    // Listener for banner events:
+    private BannerView.IListener bannerListener = new BannerView.IListener() {
+        @Override
+        public void onBannerLoaded(BannerView bannerAdView) {
+            // Called when the banner is loaded.
+            Log.v("UnityAdsExample", "onBannerLoaded: " + bannerAdView.getPlacementId());
+            // Enable the correct button to hide the ad
+            BannerView bottomBanner = new BannerView(getActivity(), "banner", new UnityBannerSize(320, 50));
+            // Set the listener for banner lifecycle events:
+            bottomBanner.setListener(bannerListener);
+            ViewGroup bottomBannerView = ((ViewGroup) rootView.findViewById(R.id.adView));
+
+            if (bottomBanner.getParent() != null) {
+                ((ViewGroup) bottomBanner.getParent()).removeView(bottomBanner);
+            }
+            ((ViewGroup) rootView.findViewById(R.id.adView)).addView(bottomBanner);
+            Log.d("Khang", "onUnityBannerLoaded: " + placementId);
+        }
+
+        @Override
+        public void onBannerFailedToLoad(BannerView bannerAdView, BannerErrorInfo errorInfo) {
+            Log.e("UnityAdsExample", "Unity Ads failed to load banner for " + bannerAdView.getPlacementId() + " with error: [" + errorInfo.errorCode + "] " + errorInfo.errorMessage);
+            // Note that the BannerErrorInfo object can indicate a no fill (see API documentation).
+        }
+
+        @Override
+        public void onBannerClick(BannerView bannerAdView) {
+            // Called when a banner is clicked.
+            Log.v("UnityAdsExample", "onBannerClick: " + bannerAdView.getPlacementId());
+        }
+
+        @Override
+        public void onBannerLeftApplication(BannerView bannerAdView) {
+            // Called when the banner links out of the application.
+            Log.v("UnityAdsExample", "onBannerLeftApplication: " + bannerAdView.getPlacementId());
+        }
+    };
 
 
     @Override
@@ -177,12 +277,6 @@ public class LikecheoFragment extends Fragment
         }
         mContext = getContext();
 //        mCampaignsList = new ArrayList<>();
-        MobileAds.initialize(mContext, getString(R.string.abmob_interstitial_ad_unit_id));
-        mRewardedVideoAd = MobileAds.getRewardedVideoAdInstance(getActivity().getApplicationContext());
-        mRewardedVideoAd.setRewardedVideoAdListener(this);
-        mInterstitialAd = new InterstitialAd(mContext);
-        mInterstitialAd.setAdUnitId(getString(R.string.abmob_interstitial_ad_unit_id));
-        mInterstitialAd.loadAd(new AdRequest.Builder().build());
 
         myUserName = PreferenceUtil.getStringPref(PreferenceUtil.TIKTOK_USER_NAME, "UCjDXGbXlfSO4SXN0YLdGO2A");
 
@@ -216,11 +310,10 @@ public class LikecheoFragment extends Fragment
         //for checking follow
         mWebView = rootView.findViewById(R.id.webView);
         mWebView.setVisibility(View.INVISIBLE);
-        tiktokWebClient = new TiktokWebClient(getApplicationContext(), mWebView);
+        tiktokWebClient = new TiktokWebClient(getContext(), mWebView);
 
         mAdView = rootView.findViewById(R.id.adView);
         AdRequest adRequest = new AdRequest.Builder().build();
-        mAdView.loadAd(adRequest);
 
 //        if (bannerView == null && !MyChannelApplication.isVipAccount) {
 //            UnityBanners.setBannerPosition(BannerPosition.BOTTOM_CENTER);
@@ -229,7 +322,7 @@ public class LikecheoFragment extends Fragment
         // Initialize the SDK:
 //        final IUnityBannerListener myBannerListener = new LikecheoFragment.UnityBannerListener();
 //        UnityBanners.setBannerListener(myBannerListener);
-        UnityAds.initialize(getActivity(), unityGameID, myAdsListener, testMode);
+        UnityAds.initialize(getContext(), unityGameID, testMode, this);
 
         mBtnLike.setOnClickListener(this);
         mBtnSeeOther.setOnClickListener(this);
@@ -266,101 +359,9 @@ public class LikecheoFragment extends Fragment
         getAllLikedList();
 
 
-        loadRewardedVideoAd();
         return rootView;
     }
 
-    // Implement the banner listener interface methods:
-    private class UnityBannerListener implements IUnityBannerListener {
-
-        @Override
-        public void onUnityBannerLoaded(String placementId, View view) {
-            // When the banner content loads, add it to the view hierarchy:
-            try {
-                bannerView = view;
-                if (view.getParent() != null) {
-                    ((ViewGroup) view.getParent()).removeView(view);
-                }
-                ((ViewGroup) rootView.findViewById(R.id.adView)).addView(view);
-                Log.d("Khang", "onUnityBannerLoaded: " + placementId);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-
-        @Override
-        public void onUnityBannerUnloaded(String placementId) {
-            // When the banner’s no longer in use, remove it from the view hierarchy:
-            Log.d("Khang", "onUnityBannerUnloaded: " + placementId);
-            bannerView = null;
-        }
-
-        @Override
-        public void onUnityBannerShow(String placementId) {
-            // Called when the banner is first visible to the user.
-            Log.d("Khang", "onUnityBannerShow: " + placementId);
-        }
-
-        @Override
-        public void onUnityBannerClick(String placementId) {
-            // Called when the banner is clicked.
-            Log.d("Khang", "onUnityBannerClick: " + placementId);
-        }
-
-        @Override
-        public void onUnityBannerHide(String placementId) {
-            // Called when the banner is hidden from the user.
-            Log.d("Khang", "onUnityBannerHide: " + placementId);
-        }
-
-        @Override
-        public void onUnityBannerError(String message) {
-            Log.d("Khang", "onUnityBannerError: " + message);
-            if (bannerView == null && loadBannerViewTryCount < 10 && !MyChannelApplication.isVipAccount) {
-                new Handler().postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-                        UnityBanners.setBannerPosition(BannerPosition.BOTTOM_CENTER);
-                        UnityBanners.loadBanner(getActivity(), "banner");
-                        loadBannerViewTryCount++;
-                    }
-                }, 1000);
-
-            }
-            // Called when an error occurred, and the banner failed to load or show.
-        }
-    }
-
-    private class UnityAdsListener implements IUnityAdsListener {
-
-        public void onUnityAdsReady(String placementId) {
-            // Implement functionality for an ad being ready to show.
-        }
-
-        @Override
-        public void onUnityAdsStart(String placementId) {
-            // Implement functionality for a user starting to watch an ad.
-        }
-
-        @Override
-        public void onUnityAdsFinish(String placementId, UnityAds.FinishState finishState) {
-            // Implement conditional logic for each ad completion status:
-            Log.d("Khang", "onUnityAdsFinish : " + placementId + " / " + finishState);
-            if (finishState == UnityAds.FinishState.COMPLETED) {
-                onRewarded();
-                // Reward the user for watching the ad to completion.
-            } else if (finishState == UnityAds.FinishState.SKIPPED) {
-                // Do not reward the user for skipping the ad.
-            } else if (finishState == UnityAds.FinishState.ERROR) {
-                // Log an error.
-            }
-        }
-
-        @Override
-        public void onUnityAdsError(UnityAds.UnityAdsError error, String message) {
-            // Implement functionality for a Unity Ads service error occurring.
-        }
-    }
 
     private void getTodayLikeCount() {
         likeCountToday = new CountToday();
@@ -401,6 +402,7 @@ public class LikecheoFragment extends Fragment
     private ProgressDialog checkingFollowDialog;
 
     private void getVideoInfoByWebView(boolean isNeedCheckFollow) {
+        if (mLikeCampaign == null) return;
         final boolean[] isLoaded = {false}; // haom onloadFinish bi goi 2 lan, chi xu ly o lan goi dau tien
         try {
             if (checkingFollowDialog != null && !checkingFollowDialog.isShowing()) {
@@ -451,53 +453,65 @@ public class LikecheoFragment extends Fragment
                         isLoaded[0] = true;
                         Log.e("khangcheckfollow", "getUserInfoByWebView onLoadFinish: " + url);
                         //for update video thumbnail;
-                        String img = mLikeCampaign.getVideoThumb();
-                        String expiredTime = img.substring(img.lastIndexOf("expires=") + 8, img.lastIndexOf("expires=") + 18);
-                        Log.d("khangcheckfollow", "expiredTime: " + expiredTime + " / " + System.currentTimeMillis());
+                        if (mLikeCampaign != null) {
+                            String img = mLikeCampaign.getVideoThumb();
+                            String expiredTime = img.substring(img.lastIndexOf("expires=") + 8, img.lastIndexOf("expires=") + 18);
+                            Log.d("khangcheckfollow", "expiredTime: " + expiredTime + " / " + System.currentTimeMillis());
 
-                        long l = Long.parseLong(expiredTime);
-                        if (l < System.currentTimeMillis() / 1000) {
-                            Log.d("khang", "checkby webview da het han" + expiredTime);
-                            try {
-                                String imageUrl = document.getElementsByClass("tiktok-player").get(0).getElementsByTag("img").get(0).attributes().get("src");
-                                Log.d("khang", "video thumbnailUrl: " + imageUrl);
-                                if (mLikeCampaign != null && imageUrl != null) {
-                                    mVideoThumb.post(new Runnable() {
-                                        @Override
-                                        public void run() {
-                                            Picasso.get().load(imageUrl).transform(new CircleTransform())
-                                                    .into(mVideoThumb);
+                            long l = Long.parseLong(expiredTime);
+                            if (l < System.currentTimeMillis() / 1000) {
+                                Log.d("khang", "checkby webview da het han" + expiredTime);
+                                try {
+                                    String imageUrl = "";
+                                    Elements findImgUrlElementList = document.getElementsByTag("meta");
+                                    for (Element e:findImgUrlElementList) {
+                                        String content = e.attributes().get("content");
+                                        if (content.contains("expires=")) {
+                                            imageUrl = content;
+                                            break;
                                         }
-                                    });
-                                    final DatabaseReference campaignCurrentRef = FirebaseUtil.getLikeCampaignsRef().child(mLikeCampaign.getKey());
-                                    campaignCurrentRef.runTransaction(new Transaction.Handler() {
-                                        @NonNull
-                                        @Override
-                                        public Transaction.Result doTransaction(@NonNull MutableData mutableData) {
-                                            LikeCampaign currentCampaign = mutableData.getValue(LikeCampaign.class);
-                                            if (currentCampaign == null) {
+                                    }
+
+                                    Log.d("khang", "video thumbnailUrl: " + imageUrl);
+                                    if (mLikeCampaign != null && imageUrl.length() > 0) {
+                                        String finalImageUrl = imageUrl;
+                                        mVideoThumb.post(new Runnable() {
+                                            @Override
+                                            public void run() {
+                                                Picasso.get().load(finalImageUrl).transform(new CircleTransform())
+                                                        .into(mVideoThumb);
+                                            }
+                                        });
+                                        final DatabaseReference campaignCurrentRef = FirebaseUtil.getLikeCampaignsRef().child(mLikeCampaign.getKey());
+                                        campaignCurrentRef.runTransaction(new Transaction.Handler() {
+                                            @NonNull
+                                            @Override
+                                            public Transaction.Result doTransaction(@NonNull MutableData mutableData) {
+                                                LikeCampaign currentCampaign = mutableData.getValue(LikeCampaign.class);
+                                                if (currentCampaign == null) {
+                                                    return Transaction.success(mutableData);
+                                                }
+
+                                                currentCampaign.setVideoThumb(finalImageUrl);
+
+                                                // Set value and report transaction success
+                                                mutableData.setValue(currentCampaign);
                                                 return Transaction.success(mutableData);
                                             }
 
-                                            currentCampaign.setVideoThumb(imageUrl);
+                                            @Override
+                                            public void onComplete(@Nullable DatabaseError databaseError, boolean b, @Nullable DataSnapshot dataSnapshot) {
 
-                                            // Set value and report transaction success
-                                            mutableData.setValue(currentCampaign);
-                                            return Transaction.success(mutableData);
-                                        }
-
-                                        @Override
-                                        public void onComplete(@Nullable DatabaseError databaseError, boolean b, @Nullable DataSnapshot dataSnapshot) {
-
-                                        }
-                                    });
+                                            }
+                                        });
+                                    }
+                                } catch (Exception e) {
+                                    Log.d("khang", "webview get imageUrl error: " + e.getMessage());
+                                    e.printStackTrace();
                                 }
-                            } catch (Exception e) {
-                                Log.d("khang", "webview get imageUrl error: " + e.getMessage());
-                                e.printStackTrace();
+                            } else {
+                                Log.d("khang", "checkby webview chua het han" + expiredTime);
                             }
-                        } else {
-                            Log.d("khang", "checkby webview chua het han" + expiredTime);
                         }
 
                         if (url.contains("notfound")) { //block ip from india so url is notfound
@@ -515,7 +529,7 @@ public class LikecheoFragment extends Fragment
 
                         String likeCount = "-1";
                         try {
-                            likeCount = document.getElementsByClass("tiktok-toolbar").get(0).getElementsByTag("strong").get(0).text();
+                            likeCount = document.getElementsByClass("tiktok-pfkbd6-SpanText e1o5bxur3").get(0).text();
                         } catch (Exception e) {
                             Log.d("khang", "webview get get Likecount error: " + e.getMessage());
                             likeCount = "-1";
@@ -567,6 +581,9 @@ public class LikecheoFragment extends Fragment
                             }).setNegativeButton(getString(R.string.xem_cai_khac), new DialogInterface.OnClickListener() {
                                 @Override
                                 public void onClick(DialogInterface dialog, int which) {
+                                    if (SecureDate.getInstance().getDate().getTime() - (long) mLikeCampaign.getCreTime() > (long) 15 * 24 * 60 * 60 * 1000) {
+                                        skipNotFoundCampaign(mLikeCampaign);
+                                    }
                                     queryDatabase();
                                     dialog.dismiss();
                                 }
@@ -585,7 +602,6 @@ public class LikecheoFragment extends Fragment
     public void onResume() {
         super.onResume();
         Log.d("khang", "sub4subFragment onResume: " + isWaitingForLike);
-        mRewardedVideoAd.resume(getContext());
 
         try {
             Intent myService = new Intent(getActivity(), DemNguocThoiGianServices.class);
@@ -615,6 +631,10 @@ public class LikecheoFragment extends Fragment
                             @Override
                             public void onClick(DialogInterface dialog, int which) {
                                 dialog.dismiss();
+                                if (SecureDate.getInstance().getDate().getTime() - (long) mLikeCampaign.getCreTime() > (long) 15 * 24 * 60 * 60 * 1000) {
+                                    skipNotFoundCampaign(mLikeCampaign);
+                                }
+                                queryDatabase();
                             }
                         })
                         .create();
@@ -635,7 +655,40 @@ public class LikecheoFragment extends Fragment
 
     }
 
+    private void skipNotFoundCampaign(LikeCampaign likeCampaign) {
+        Log.d("khang", "khong tim thay video");
+        //to campaign
+        DatabaseReference currentCampaignRef = FirebaseUtil.getLikeCampaignsRef().child(likeCampaign.getKey());
+        currentCampaignRef.runTransaction(new Transaction.Handler() {
+            @Override
+            public Transaction.Result doTransaction(MutableData mutableData) {
+                LikeCampaign currentCampaign = mutableData.getValue(LikeCampaign.class);
+                if (currentCampaign == null) {
+                    return Transaction.success(mutableData);
+                }
+
+                currentCampaign.setCurLike(currentCampaign.getCurLike() + 1);
+                currentCampaign.setLasTime(ServerValue.TIMESTAMP);
+                if (currentCampaign.getCurLike() >= currentCampaign.getOrder()) {
+                    currentCampaign.setFinTime(ServerValue.TIMESTAMP);
+                    currentCampaign.setIp(false);
+                    currentCampaign.setLasTime(Long.MAX_VALUE);
+                }
+                // Set value and report transaction success
+                mutableData.setValue(currentCampaign);
+                return Transaction.success(mutableData);
+            }
+
+            @Override
+            public void onComplete(DatabaseError databaseError, boolean b,
+                                   DataSnapshot dataSnapshot) {
+                // Transaction completed
+            }
+        });
+    }
+
     private String mLikedListString;
+
     private void getAllLikedList() {
         mLikedListString = PreferenceUtil.getStringPref(PreferenceUtil.LIKED_LIST + FirebaseUtil.getCurrentUserId(), "");
         mVideoLikedList = new ArrayList<>(Arrays.asList(mLikedListString.split("~")));
@@ -820,13 +873,11 @@ public class LikecheoFragment extends Fragment
 
     @Override
     public void onPause() {
-        mRewardedVideoAd.pause(getContext());
         super.onPause();
     }
 
     @Override
     public void onDestroy() {
-        mRewardedVideoAd.destroy(getContext());
         if (mCountDownTimer != null) {
             mCountDownTimer.cancel();
             mCountDownTimer = null;
@@ -928,17 +979,8 @@ public class LikecheoFragment extends Fragment
 
     private void showAds() {
         Log.d("Khang", "showads");
-        if (mRewardedVideoAd.isLoaded()) {
-            Log.d("Khang", "show adsmob");
-            mRewardedVideoAd.show();
-        } else {
-            Log.d("Khang", "show unity ads");
-            if (UnityAds.isReady(placementId)) {
-                UnityAds.show(getActivity(), placementId);
-            } else {
-                UnityAds.initialize(getActivity(), unityGameID, myAdsListener, testMode);
-            }
-        }
+        Log.d("Khang", "show unity ads");
+        DisplayRewardedAd();
     }
 
 
@@ -948,12 +990,12 @@ public class LikecheoFragment extends Fragment
             mPageContentLayout.setVisibility(View.INVISIBLE);
             hideProgressDialog();
             if (!MyChannelApplication.isVipAccount) {
-                if (mRewardedVideoAd.isLoaded()) {
-                    mRewardedVideoAd.show();
-                } else if (mInterstitialAd.isLoaded()) {
-                    mInterstitialAd.show();
-                    mInterstitialAd.loadAd(new AdRequest.Builder().build());
-                }
+//                if (mRewardedVideoAd.isLoaded()) {
+//                    mRewardedVideoAd.show();
+//                } else if (mInterstitialAd.isLoaded()) {
+//                    mInterstitialAd.show();
+//                    mInterstitialAd.loadAd(new AdRequest.Builder().build());
+//                }
             }
             return;
         }
@@ -1047,30 +1089,32 @@ public class LikecheoFragment extends Fragment
 
                     if (mLikeCampaign != null && mLikeCampaign.getVideoId() != null && mLikeCampaign.getVideoId().equals(itemVideo.getId())) {
                         String img = itemVideo.getImageUrl();
-                        Picasso.get().load(img).transform(new CircleTransform())
-                                .into(mVideoThumb);
-                        final DatabaseReference campaignCurrentRef = FirebaseUtil.getLikeCampaignsRef().child(mLikeCampaign.getKey());
-                        campaignCurrentRef.runTransaction(new Transaction.Handler() {
-                            @NonNull
-                            @Override
-                            public Transaction.Result doTransaction(@NonNull MutableData mutableData) {
-                                LikeCampaign currentCampaign = mutableData.getValue(LikeCampaign.class);
-                                if (currentCampaign == null) {
+                        if (img != null) {
+                            Picasso.get().load(img).transform(new CircleTransform())
+                                    .into(mVideoThumb);
+                            final DatabaseReference campaignCurrentRef = FirebaseUtil.getLikeCampaignsRef().child(mLikeCampaign.getKey());
+                            campaignCurrentRef.runTransaction(new Transaction.Handler() {
+                                @NonNull
+                                @Override
+                                public Transaction.Result doTransaction(@NonNull MutableData mutableData) {
+                                    LikeCampaign currentCampaign = mutableData.getValue(LikeCampaign.class);
+                                    if (currentCampaign == null) {
+                                        return Transaction.success(mutableData);
+                                    }
+
+                                    currentCampaign.setVideoThumb(img);
+
+                                    // Set value and report transaction success
+                                    mutableData.setValue(currentCampaign);
                                     return Transaction.success(mutableData);
                                 }
 
-                                currentCampaign.setVideoThumb(img);
+                                @Override
+                                public void onComplete(@Nullable DatabaseError databaseError, boolean b, @Nullable DataSnapshot dataSnapshot) {
 
-                                // Set value and report transaction success
-                                mutableData.setValue(currentCampaign);
-                                return Transaction.success(mutableData);
-                            }
-
-                            @Override
-                            public void onComplete(@Nullable DatabaseError databaseError, boolean b, @Nullable DataSnapshot dataSnapshot) {
-
-                            }
-                        });
+                                }
+                            });
+                        }
                     }
                 }
             }
@@ -1118,7 +1162,7 @@ public class LikecheoFragment extends Fragment
                             mInstructionLayout.setVisibility(View.VISIBLE);
                             Random r = new Random();
                             int i1 = r.nextInt(99);
-                            if (i1 < 50 && !MyChannelApplication.isVipAccount && likeCountToday.getCount() > 5) {
+                            if (i1 < 50 && !MyChannelApplication.isVipAccount && likeCountToday != null && likeCountToday.getCount() > 2) {
                                 showAds();
                             }
                             PreferenceUtil.saveLongPref(PreferenceUtil.TIME_COUNTER_LIKED, 0);
@@ -1223,7 +1267,7 @@ public class LikecheoFragment extends Fragment
                             e.printStackTrace();
                         }
                         if (tmpLikeCampaigns != null) {
-                            Log.d("Khang", "querry: key:" + tmpLikeCampaigns.getKey() + " /cursub: " + tmpLikeCampaigns.getCurLike() + " /oder" + tmpLikeCampaigns.getOrder() + " /ownID: " + tmpLikeCampaigns.getOwnId());
+                            Log.d("Khang", "querry: key:" + campaignDataSnapshot.getRef() + " /cursub: " + tmpLikeCampaigns.getCurLike() + " /oder" + tmpLikeCampaigns.getOrder() + " /ownID: " + tmpLikeCampaigns.getOwnId());
 
 
                             //kiem tra key, neu key sai phai set lai key
@@ -1232,6 +1276,27 @@ public class LikecheoFragment extends Fragment
                                 tmpLikeCampaigns.setLasTime(ServerValue.TIMESTAMP);
                                 final DatabaseReference campaignCurrentRef = FirebaseUtil.getLikeCampaignsRef().child(tmpLikeCampaigns.getKey());
                                 campaignCurrentRef.setValue(tmpLikeCampaigns);
+                            }
+
+                            //chien dich qua lau khong hoan thanh, xoa
+                            SimpleDateFormat sfd;
+                            sfd = new SimpleDateFormat(mContext.getResources().getString(R
+                                    .string.simple_date_format));
+                            Log.d("Khang", "CreateTime: " + sfd.format(new Date
+                                    ((long) tmpLikeCampaigns.getCreTime())));
+                            if (SecureDate.getInstance().getDate().getTime() - (long) tmpLikeCampaigns.getCreTime() > 90L * 24 * 60 * 60 * 1000) {
+                                Log.d("khang2", "querry delete too long time campaign: key:" + campaignDataSnapshot.getRef() + " /cursub: " + tmpLikeCampaigns.getCurLike() + "/" + tmpLikeCampaigns.getOrder() + " TimeR: " + tmpLikeCampaigns.getTimeR() + " /ownID: " + tmpLikeCampaigns.getOwnId());
+                                sfd = new SimpleDateFormat(mContext.getResources().getString(R
+                                        .string.simple_date_format));
+                                Log.d("khang2", "CreateTime: " + sfd.format(new Date
+                                        ((long) tmpLikeCampaigns.getCreTime())));
+                                DatabaseReference wrongCampaignRef = campaignDataSnapshot.getRef();
+                                wrongCampaignRef.removeValue();
+                                DatabaseReference currentCampaignLogSubRef = FirebaseUtil.getLogLikeRef().child(tmpLikeCampaigns.getKey());
+                                currentCampaignLogSubRef.removeValue();
+                                numberQueryFail++;
+                                retryQueryWithDelay();
+                                return;
                             }
 
                             //kiem tra channelid, neu khong co id xoa chien dich va query lai
@@ -1322,10 +1387,6 @@ public class LikecheoFragment extends Fragment
         return false;
     }
 
-    private void loadRewardedVideoAd() {
-        mRewardedVideoAd
-                .loadAd(getString(R.string.admob_reward_ad_unit_id), new AdRequest.Builder().build());
-    }
 
     public void removedBannerAds() {
         if (mAdView != null && mAdView.getVisibility() == View.VISIBLE) {
@@ -1381,12 +1442,6 @@ public class LikecheoFragment extends Fragment
 ////            subscribeButtonOnclick();
         } else if (requestCode == CODE_REWARD_VIDEO_ACTIVITY) {
             if (resultCode != RESULT_OK && !MyChannelApplication.isVipAccount) {
-                if (mInterstitialAd.isLoaded()) {
-                    mInterstitialAd.show();
-                    mInterstitialAd.loadAd(new AdRequest.Builder().build());
-                } else {
-                    mInterstitialAd.loadAd(new AdRequest.Builder().build());
-                }
             }
 
         }
@@ -1394,50 +1449,6 @@ public class LikecheoFragment extends Fragment
     }
 
 
-    @Override
-    public void onRewardedVideoAdLoaded() {
-
-    }
-
-    @Override
-    public void onRewardedVideoAdOpened() {
-
-    }
-
-    @Override
-    public void onRewardedVideoStarted() {
-
-    }
-
-    @Override
-    public void onRewardedVideoAdClosed() {
-        loadRewardedVideoAd();
-    }
-
-    @Override
-    public void onRewarded(RewardItem rewardItem) {
-        onRewarded();
-    }
-
-    @Override
-    public void onRewardedVideoAdLeftApplication() {
-
-    }
-
-    @Override
-    public void onRewardedVideoAdFailedToLoad(int i) {
-        if (mInterstitialAd.isLoaded()) {
-            mInterstitialAd.show();
-            mInterstitialAd.loadAd(new AdRequest.Builder().build());
-        } else {
-            mInterstitialAd.loadAd(new AdRequest.Builder().build());
-        }
-    }
-
-    @Override
-    public void onRewardedVideoCompleted() {
-
-    }
 
     private void onRewarded() {
         if (getContext() != null) {
@@ -1447,25 +1458,6 @@ public class LikecheoFragment extends Fragment
     }
 
 
-    @Override
-    public void onUnityAdsReady(String s) {
-
-    }
-
-    @Override
-    public void onUnityAdsStart(String s) {
-
-    }
-
-    @Override
-    public void onUnityAdsFinish(String s, UnityAds.FinishState finishState) {
-
-    }
-
-    @Override
-    public void onUnityAdsError(UnityAds.UnityAdsError unityAdsError, String s) {
-
-    }
 
     /**
      * This interface must be implemented by activities that contain this
@@ -1739,7 +1731,6 @@ public class LikecheoFragment extends Fragment
             mLikedListString = likeCampaign.getVideoId() + "~" + mLikedListString;
         }
         PreferenceUtil.saveStringPref(PreferenceUtil.LIKED_LIST + FirebaseUtil.getCurrentUserId(), mLikedListString);
-
 
 
         //save subscribed to current user

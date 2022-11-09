@@ -35,12 +35,16 @@ import com.google.firebase.database.Transaction;
 import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.remoteconfig.FirebaseRemoteConfig;
 import com.squareup.picasso.Picasso;
-import com.unity3d.ads.IUnityAdsListener;
+import com.unity3d.ads.IUnityAdsInitializationListener;
+import com.unity3d.ads.IUnityAdsLoadListener;
+import com.unity3d.ads.IUnityAdsShowListener;
 import com.unity3d.ads.UnityAds;
+import com.unity3d.ads.UnityAdsShowOptions;
 
 import tikfans.tikplus.MuaHangActivity;
 import tikfans.tikplus.MyChannelApplication;
 import tikfans.tikplus.R;
+import tikfans.tikplus.model.LogAdsReward;
 import tikfans.tikplus.util.AppUtil;
 import tikfans.tikplus.util.CircleTransform;
 import tikfans.tikplus.util.CustomTextView;
@@ -50,7 +54,7 @@ import tikfans.tikplus.util.RemoteConfigUtil;
 import tikfans.tikplus.model.ChienDichCuaNguoiDungHienTai;
 import tikfans.tikplus.model.SubCampaign;
 
-public class SubTaoChienDichActivity extends AppCompatActivity implements View.OnClickListener {
+public class SubTaoChienDichActivity extends AppCompatActivity implements View.OnClickListener, IUnityAdsInitializationListener {
     private static final int NUMBER_OF_SUB = 1;
     private static final int TIME_REQUIRED = 2;
     private Button mBtnNumberFollow, mBtnNumberHearts, mBtnTimeRequired, mBtnTotalCost, mBtnDone, mBtnVipAccountCoin;
@@ -70,6 +74,81 @@ public class SubTaoChienDichActivity extends AppCompatActivity implements View.O
     private String mVideoWebLink;
     private String mUserName;
     private String mUserImg;
+
+    //unity
+    private View rootView;
+    private String unityGameID = "3737693";
+    private boolean testMode = false;
+    private String placementId = "rewardedVideo";
+
+    private void onRewarded() {
+        Toast.makeText(this, String.format(getString(R.string.nhan_duoc_coin), FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_VIDEO_REWARD)), Toast.LENGTH_SHORT).show();
+        FirebaseUtil.getLogAdsRewardCurrentUserRef().setValue(new LogAdsReward(FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_VIDEO_REWARD), ServerValue.TIMESTAMP));
+    }
+
+    //unity
+    @Override
+    public void onInitializationComplete() {
+        Log.v("UnityAdsExample", "onInitializationComplete: ");
+        UnityAds.load(placementId, loadListener);
+    }
+
+    @Override
+    public void onInitializationFailed(UnityAds.UnityAdsInitializationError error, String message) {
+        Log.e("UnityAdsExample", "Unity Ads initialization failed with error: [" + error + "] " + message);
+    }
+
+    boolean isUnityAdsLoaded = false;
+    private IUnityAdsLoadListener loadListener = new IUnityAdsLoadListener() {
+        @Override
+        public void onUnityAdsAdLoaded(String placementId) {
+            Log.v("UnityAdsExample", "onUnityAdsAdLoaded: " + true);
+            isUnityAdsLoaded = true;
+        }
+
+        @Override
+        public void onUnityAdsFailedToLoad(String placementId, UnityAds.UnityAdsLoadError error, String message) {
+            Log.e("UnityAdsExample", "Unity Ads failed to load ad for " + placementId + " with error: [" + error + "] " + message);
+        }
+    };
+
+    private IUnityAdsShowListener showListener = new IUnityAdsShowListener() {
+        @Override
+        public void onUnityAdsShowFailure(String placementId, UnityAds.UnityAdsShowError error, String message) {
+            UnityAds.load(placementId, loadListener);
+            Log.e("UnityAdsExample", "Unity Ads failed to show ad for " + placementId + " with error: [" + error + "] " + message);
+        }
+
+        @Override
+        public void onUnityAdsShowStart(String placementId) {
+            Log.v("UnityAdsExample", "onUnityAdsShowStart: " + placementId);
+        }
+
+        @Override
+        public void onUnityAdsShowClick(String placementId) {
+            Log.v("UnityAdsExample", "onUnityAdsShowClick: " + placementId);
+        }
+
+        @Override
+        public void onUnityAdsShowComplete(String placementId, UnityAds.UnityAdsShowCompletionState state) {
+            UnityAds.load(placementId, loadListener);
+            Log.v("UnityAdsExample", "onUnityAdsShowComplete: " + placementId);
+            if (state.equals(UnityAds.UnityAdsShowCompletionState.COMPLETED)) {
+                onRewarded();
+            } else {
+                // Do not reward the user for skipping the ad
+            }
+        }
+    };
+    public void DisplayRewardedAd () {
+        if (isUnityAdsLoaded) {
+            UnityAds.show(SubTaoChienDichActivity.this, placementId, new UnityAdsShowOptions(), showListener);
+        } else {
+            if (UnityAds.isInitialized()) {
+                UnityAds.load(placementId, loadListener);
+            }
+        }
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -114,6 +193,8 @@ public class SubTaoChienDichActivity extends AppCompatActivity implements View.O
         mBtnTimeRequired.setText(String.valueOf(mTimeRequired));
         mBtnTotalCost.setText(String.valueOf(mTotalCost));
 
+        //unity
+        UnityAds.initialize(getApplicationContext(), unityGameID, testMode, this);
 
         DatabaseReference coinRef = FirebaseUtil.getCoinCurrentAccountRef();
         coinRef.addValueEventListener(new ValueEventListener() {
@@ -313,6 +394,10 @@ public class SubTaoChienDichActivity extends AppCompatActivity implements View.O
                 campaignsRef.push().setValue(campaign, new DatabaseReference.CompletionListener() {
                     @Override
                     public void onComplete(DatabaseError error, final DatabaseReference firebase) {
+                        if (!MyChannelApplication.isVipAccount) {
+                            DisplayRewardedAd();
+                        }
+
                         if (error != null) {
                             Toast.makeText(getApplicationContext(), "Error create new campaign: ", Toast.LENGTH_SHORT).show();
                             Log.d("Khang", "Error:" + error.getDetails());
@@ -349,7 +434,6 @@ public class SubTaoChienDichActivity extends AppCompatActivity implements View.O
                             new Handler().postDelayed(new Runnable() {
                                 @Override
                                 public void run() {
-                                    showAds();
                                     finish();
                                 }
                             }, 500);
@@ -367,54 +451,6 @@ public class SubTaoChienDichActivity extends AppCompatActivity implements View.O
         });
     }
 
-    private String unityGameID = "3737693";
-    private boolean testMode = false;
-    private String placementId = "rewardedVideo";
-    final UnityAdsListener myAdsListener = new UnityAdsListener();
-
-    private void showAds() {
-        if (MyChannelApplication.isVipAccount) return;
-        Log.d("Khang", "showads");
-        Log.d("Khang", "show unity ads");
-        if (UnityAds.isReady(placementId)) {
-            UnityAds.show(this, placementId);
-        } else {
-            UnityAds.initialize(this, unityGameID, myAdsListener, testMode);
-        }
-    }
-
-    private class UnityAdsListener implements IUnityAdsListener {
-
-        public void onUnityAdsReady(String placementId) {
-            // Implement functionality for an ad being ready to show.
-//            Log.d("Khang", "onUnityAdsReady: " + placementId);
-        }
-
-        @Override
-        public void onUnityAdsStart(String placementId) {
-            // Implement functionality for a user starting to watch an ad.
-//            Log.d("Khang", "onUnityAdsStart: " + placementId);
-        }
-
-        @Override
-        public void onUnityAdsFinish(String placementId, UnityAds.FinishState finishState) {
-            // Implement conditional logic for each ad completion status:
-//            Log.d("Khang", "onUnityAdsFinish : " + placementId + " / " + finishState);
-            if (finishState == UnityAds.FinishState.COMPLETED) {
-//                onRewarded();
-                // Reward the user for watching the ad to completion.
-            } else if (finishState == UnityAds.FinishState.SKIPPED) {
-                // Do not reward the user for skipping the ad.
-            } else if (finishState == UnityAds.FinishState.ERROR) {
-                // Log an error.
-            }
-        }
-
-        @Override
-        public void onUnityAdsError(UnityAds.UnityAdsError unityAdsError, String s) {
-
-        }
-    }
 
     private void hideProgressDialog() {
         if (progressDialog != null && progressDialog.isShowing()) {

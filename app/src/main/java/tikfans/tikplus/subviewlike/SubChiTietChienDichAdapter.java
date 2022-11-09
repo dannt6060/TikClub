@@ -1,5 +1,7 @@
 package tikfans.tikplus.subviewlike;
 
+import static com.unity3d.scar.adapter.common.Utils.runOnUiThread;
+
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
@@ -46,7 +48,6 @@ import tikfans.tikplus.util.SecureDate;
 import tikfans.tikplus.model.LogSub;
 import tikfans.tikplus.model.SubCampaign;
 
-import static com.unity3d.services.core.misc.Utilities.runOnUiThread;
 
 public class SubChiTietChienDichAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     private Context mContext;

@@ -80,6 +80,10 @@ public class ChienDichViewHolder extends RecyclerView.ViewHolder implements View
 
     }
 
+    public void disableMoreIcon() {
+        mMoreIcon.setVisibility(View.GONE);
+    }
+
 //    public void setCampaignVideoTitle(String videoTitle) {
 //        mVideoTitleTextView.setText(videoTitle);
 //    }

@@ -47,6 +47,8 @@
 
     </com.google.android.material.appbar.AppBarLayout>
     <RelativeLayout
+        android:visibility="gone"
+        android:id="@+id/add_video_layout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
 
@@ -57,6 +59,8 @@
             android:layout_alignParentStart="true"
             android:layout_marginStart="16dp"
             android:layout_toStartOf="@+id/btn_add"
+            android:ellipsize="end"
+            android:textSize="12dp"
             android:hint="@string/nhap_duong_dan_video"
             android:maxLines="1" />
 
@@ -67,21 +71,29 @@
             android:layout_height="wrap_content"
             android:layout_alignParentEnd="true"
             android:text="Add" />
+
+        <TextView
+            android:id="@+id/input_link_text_help"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@+id/edittext_yt_url"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="5dp"
+            android:layout_marginEnd="16dp"
+            android:text="@string/huong_dan_nhap_duong_dan_video" />
+
+        <View
+            android:id="@+id/break_line"
+            android:layout_below="@+id/input_link_text_help"
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="5dp"
+            android:background="@color/black_overlay" />
+
+
+
+
     </RelativeLayout>
-
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="@color/black_overlay" />
-
-
-    <TextView
-        android:layout_marginTop="10dp"
-        android:layout_marginStart="16dp"
-        android:layout_marginEnd="16dp"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/huong_dan_nhap_duong_dan_video"/>
 
 
     <LinearLayout

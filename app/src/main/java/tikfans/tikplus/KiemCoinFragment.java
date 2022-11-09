@@ -14,9 +14,6 @@ import androidx.fragment.app.Fragment;
 
 import com.google.android.gms.ads.AdRequest;
 import com.google.android.gms.ads.MobileAds;
-import com.google.android.gms.ads.reward.RewardItem;
-import com.google.android.gms.ads.reward.RewardedVideoAd;
-import com.google.android.gms.ads.reward.RewardedVideoAdListener;
 import com.google.firebase.database.ServerValue;
 import com.google.firebase.remoteconfig.FirebaseRemoteConfig;
 
@@ -35,12 +32,10 @@ import tikfans.tikplus.model.LogAdsReward;
  * Use the {@link KiemCoinFragment#newInstance} factory method to
  * create an instance of this fragment.
  */
-public class KiemCoinFragment extends Fragment implements View.OnClickListener,
-        RewardedVideoAdListener {
+public class KiemCoinFragment extends Fragment implements View.OnClickListener{
     private static final String ARG_PARAM1 = "param1";
     private static final String ARG_PARAM2 = "param2";
 
-    private RewardedVideoAd mRewardedVideoAd;
     private Context mContext;
 
     // TODO: Rename and change types of parameters
@@ -79,18 +74,10 @@ public class KiemCoinFragment extends Fragment implements View.OnClickListener,
             mParam2 = getArguments().getString(ARG_PARAM2);
         }
         mContext = getActivity().getApplicationContext();
-        MobileAds.initialize(MyChannelApplication.getGlobalContext(), getString(R.string.admob_reward_ad_unit_id));
-        mRewardedVideoAd = MobileAds.getRewardedVideoAdInstance(getContext());
-        mRewardedVideoAd.setRewardedVideoAdListener(this);
-        loadRewardedVideoAd();
 
         //create invitation link
     }
 
-    private void loadRewardedVideoAd() {
-        mRewardedVideoAd.loadAd(getString(R.string.admob_reward_ad_unit_id),
-                new AdRequest.Builder().build());
-    }
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
@@ -105,19 +92,16 @@ public class KiemCoinFragment extends Fragment implements View.OnClickListener,
 
     @Override
     public void onResume() {
-        mRewardedVideoAd.resume(getContext());
         super.onResume();
     }
 
     @Override
     public void onPause() {
-        mRewardedVideoAd.pause(getContext());
         super.onPause();
     }
 
     @Override
     public void onDestroy() {
-        mRewardedVideoAd.destroy(getContext());
         super.onDestroy();
     }
 
@@ -165,65 +149,6 @@ public class KiemCoinFragment extends Fragment implements View.OnClickListener,
         super.onDetach();
         mListener = null;
     }
-
-    @Override
-    public void onRewarded(RewardItem reward) {
-        if (getContext() != null) {
-            Toast.makeText(getContext(), String.format(getString(R.string.nhan_duoc_coin), FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_VIDEO_REWARD)), Toast.LENGTH_SHORT).show();
-        }
-        // Reward the user.
-//        final DatabaseReference currentCoinRef = FirebaseUtil.getCoinCurrentAccountRef();
-//        currentCoinRef.runTransaction(new Transaction.Handler() {
-//            @NonNull
-//            @Override
-//            public Transaction.Result doTransaction(@NonNull MutableData mutableData) {
-//                try {
-//                    long value = (long) mutableData.getValue();
-//                    mutableData.setValue(value + FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.SUBCHAT_VIDEO_REWARD));
-//                } catch (ClassCastException e) {
-//                    Log.d("Khang", "" + getString(R.string.account_error));
-//                }
-//                return Transaction.success(mutableData);
-//            }
-//
-//            @Override
-//            public void onComplete(@Nullable DatabaseError databaseError, boolean b, @Nullable DataSnapshot dataSnapshot) {
-//                Log.d("Khang", "doTransaction onComplete: " + databaseError);
-//            }
-//        });
-        FirebaseUtil.getLogAdsRewardCurrentUserRef().setValue(new LogAdsReward(FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_VIDEO_REWARD), ServerValue.TIMESTAMP));
-    }
-
-    @Override
-    public void onRewardedVideoAdLeftApplication() {
-    }
-
-    @Override
-    public void onRewardedVideoAdClosed() {
-        loadRewardedVideoAd();
-    }
-
-    @Override
-    public void onRewardedVideoAdFailedToLoad(int errorCode) {
-    }
-
-    @Override
-    public void onRewardedVideoCompleted() {
-
-    }
-
-    @Override
-    public void onRewardedVideoAdLoaded() {
-    }
-
-    @Override
-    public void onRewardedVideoAdOpened() {
-    }
-
-    @Override
-    public void onRewardedVideoStarted() {
-    }
-
 
     /**
      * This interface must be implemented by activities that contain this

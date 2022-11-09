@@ -1,5 +1,8 @@
 package tikfans.tikplus.service;
 
+import static tikfans.tikplus.util.FirebaseUtil.TOKEN_REF;
+import static tikfans.tikplus.util.FirebaseUtil.getCurrentUserId;
+
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -8,11 +11,14 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.util.Log;
 
+import androidx.annotation.NonNull;
 import androidx.core.app.NotificationCompat;
 
+import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.messaging.RemoteMessage;
 import tikfans.tikplus.ManHinhDauTienActivity;
 import tikfans.tikplus.R;
+import tikfans.tikplus.util.FirebaseUtil;
 
 /**
  * Created by sev_user on 12/24/2016.
@@ -46,6 +52,19 @@ public class FirebaseMessagingService
         notification.flags = Notification.FLAG_AUTO_CANCEL;
         notification.defaults = Notification.DEFAULT_ALL;
         mNotificationManager.notify(111, notification);
+    }
+    @Override
+    public void onNewToken(@NonNull String token) {
+        Log.d("khang", "Refreshed token: " + token);
+
+        // If you want to send messages to this application instance or
+        // manage this apps subscriptions on the server side, send the
+        // FCM registration token to your app server.
+        if (getCurrentUserId() != null && getCurrentUserId().length() > 0)  {
+            final DatabaseReference currentUserTokenRef = FirebaseUtil.getAccountRef().child(getCurrentUserId()).child(TOKEN_REF);
+            currentUserTokenRef.setValue(token);
+        }
+
     }
 
 }

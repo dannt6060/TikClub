@@ -46,27 +46,22 @@ public class ManHinhDauTienActivity extends AppCompatActivity {
         mFirebaseAuth = FirebaseAuth.getInstance();
 
 //Get instance của remote config
-        final FirebaseRemoteConfig config = FirebaseRemoteConfig.getInstance();
-        //Vứt nó vào 1 class singleton dùng cho tiện
-        //Setting chế độ debug
-        FirebaseRemoteConfigSettings settings = new FirebaseRemoteConfigSettings.Builder()
-                .setDeveloperModeEnabled(BuildConfig.DEBUG).build();
-        config.setConfigSettings(settings);
-
-        //FirebaseRemoteConfig sử dụng các giá trị defaule trong file R.xml.default_config nếu không lấy được giá trị
-        config.setDefaults(R.xml.remote_config_defaults);
-
-        //Vì chúng ta đang trong debug mode nên cần config được fetch và active ngay lập tức sau khi thay đổi trên console
-        long expireTime = config.getInfo().getConfigSettings().isDeveloperModeEnabled() ? 0 : CONFIG_EXPIRE_SECOND;
-        Log.d("Khang", "remote config fetch:" + expireTime);
-        //Mỗi lần khởi chạy app sẽ fetch config về và nếu thành công thì sẽ active config vừa lấy về
-        config.fetch(expireTime)
-                .addOnCompleteListener(new OnCompleteListener<Void>() {
+        FirebaseRemoteConfig mFirebaseRemoteConfig = FirebaseRemoteConfig.getInstance();
+        FirebaseRemoteConfigSettings configSettings = new FirebaseRemoteConfigSettings.Builder()
+                .setMinimumFetchIntervalInSeconds(3600*12)
+                .build();
+        mFirebaseRemoteConfig.setConfigSettingsAsync(configSettings);
+        mFirebaseRemoteConfig.setDefaultsAsync(R.xml.remote_config_defaults);
+        mFirebaseRemoteConfig.fetchAndActivate()
+                .addOnCompleteListener(this, new OnCompleteListener<Boolean>() {
                     @Override
-                    public void onComplete(@NonNull Task<Void> task) {
-                        Log.d("Khang", "remote config fetch:" + task.toString());
+                    public void onComplete(@NonNull Task<Boolean> task) {
                         if (task.isSuccessful()) {
-                            config.activateFetched();
+                            boolean updated = task.getResult();
+                            Log.d("khang", "Config params updated: " + updated);
+
+                        } else {
+                            Log.d("khang", "Config params not update: ");
                         }
                     }
                 });

@@ -42,7 +42,6 @@ import tikfans.tikplus.util.FirebaseUtil;
 import tikfans.tikplus.util.PreferenceUtil;
 import tikfans.tikplus.util.RemoteConfigUtil;
 
-import static com.unity3d.services.core.properties.ClientProperties.getApplicationContext;
 
 
 /**
@@ -230,13 +229,13 @@ public class ChatFragment extends Fragment implements SwipeRefreshLayout.OnRefre
                             long currentSubCoin = (long) dataSnapshot.getValue();
                             if (currentSubCoin <= 0) {
                                 hideProgressDialog();
-                                Toast.makeText(getApplicationContext(), getString(R.string.not_enough_coin), Toast.LENGTH_SHORT).show();
+                                Toast.makeText(getActivity(), getString(R.string.not_enough_coin), Toast.LENGTH_SHORT).show();
                                 return;
                             }
 
                             if (cost > currentSubCoin) {
                                 hideProgressDialog();
-                                Toast.makeText(getApplicationContext(), getString(R.string.not_enough_coin), Toast.LENGTH_LONG).show();
+                                Toast.makeText(getActivity(), getString(R.string.not_enough_coin), Toast.LENGTH_LONG).show();
                                 Intent buyIntent = new Intent(getActivity(), MuaHangActivity.class);
                                 buyIntent.putExtra(AppUtil.VIP_ACCOUNT_EXTRA, false);
                                 startActivity(buyIntent);

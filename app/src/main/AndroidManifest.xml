@@ -18,7 +18,8 @@
         <activity
             android:name=".ManHinhDauTienActivity"
             android:label="@string/ten_app"
-            android:theme="@style/AppTheme.NoActionBar">
+            android:theme="@style/AppTheme.NoActionBar"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
@@ -38,14 +39,10 @@
             android:label="@string/buy_coin"
             android:theme="@style/AppTheme.NoActionBar" />
 
-        <service android:name=".service.FirebaseMessagingService">
+        <service android:name=".service.FirebaseMessagingService"
+            android:exported="true">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
-            </intent-filter>
-        </service>
-        <service android:name=".service.FirebaseInstanceIDService">
-            <intent-filter>
-                <action android:name="com.google.firebase.INSTANCE_ID_EVENT" />
             </intent-filter>
         </service>
         <service

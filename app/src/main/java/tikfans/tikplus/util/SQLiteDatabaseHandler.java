@@ -5,6 +5,7 @@ import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
+import android.util.Log;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
@@ -99,13 +100,18 @@ public class SQLiteDatabaseHandler extends SQLiteOpenHelper {
 
         if (cursor.moveToFirst()) {
             do {
-                itemVideo = new ItemVideo();
-                itemVideo.setId(cursor.getString(0));
-                itemVideo.setImageUrl(cursor.getString(1));
-                itemVideo.setDiggCount(Integer.parseInt(cursor.getString(2)));
-                itemVideo.setVideoUrl(cursor.getString(3));
-                itemVideo.setWebVideoUrl(cursor.getString(4));
-                itemVideoList.add(itemVideo);
+                try {
+                    itemVideo = new ItemVideo();
+                    itemVideo.setId(cursor.getString(0));
+                    itemVideo.setImageUrl(cursor.getString(1));
+                    itemVideo.setDiggCount(Integer.parseInt(cursor.getString(2)));
+                    itemVideo.setVideoUrl(cursor.getString(3));
+                    itemVideo.setWebVideoUrl(cursor.getString(4));
+                    itemVideoList.add(itemVideo);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    Log.e("khang", "exception on getAllItemVideo(): " + e.getMessage());
+                }
             } while (cursor.moveToNext());
         }
 
