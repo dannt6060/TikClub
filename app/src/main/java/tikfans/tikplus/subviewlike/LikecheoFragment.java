@@ -8,8 +8,10 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
 import java.util.Random;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.ProgressDialog;
 import android.content.ActivityNotFoundException;
@@ -478,8 +480,12 @@ public class LikecheoFragment extends Fragment
                                         mVideoThumb.post(new Runnable() {
                                             @Override
                                             public void run() {
-                                                Picasso.get().load(finalImageUrl).transform(new CircleTransform())
-                                                        .into(mVideoThumb);
+                                                try {
+                                                    Picasso.get().load(finalImageUrl).transform(new CircleTransform())
+                                                            .error(requireActivity().getDrawable(R.drawable.play)).into(mVideoThumb);
+                                                } catch (Exception e) {
+                                                    e.printStackTrace();
+                                                }
                                             }
                                         });
                                         final DatabaseReference campaignCurrentRef = FirebaseUtil.getLikeCampaignsRef().child(mLikeCampaign.getKey());
@@ -984,6 +990,7 @@ public class LikecheoFragment extends Fragment
     }
 
 
+    @SuppressLint("UseCompatLoadingForDrawables")
     private void updateCampaign() {
         if (mLikeCampaign == null || !mLikeCampaign.isIp()) {
             mNoPageLayout.setVisibility(View.VISIBLE);
@@ -1022,15 +1029,23 @@ public class LikecheoFragment extends Fragment
 //        if (isAdminVer) {
 //            mTxtInstruction.setText("videoID: " + mLikeCampaign.getVideoId() + " key: " + mLikeCampaign.getKey() + " own: " + mLikeCampaign.getOwnId() + " order: " + mLikeCampaign.getOrder() + " curSub: " + mLikeCampaign.getCurLike() + " channelId: ");
 //        }
-        Picasso.get().load(mLikeCampaign.getVideoThumb()).into(mVideoThumb);
+        try {
+            Picasso.get().load(mLikeCampaign.getVideoThumb()).error(requireActivity().getDrawable(R.drawable.play)).into(mVideoThumb);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
 
         //check tha tim bang webview
         getVideoInfoByWebView(false);
         if (mLikeCampaign.getUserName() != null) {
             if (mLikeCampaign.getVideoThumb() != null && !mLikeCampaign.getVideoThumb().equals("") && !mLikeCampaign.getVideoThumb().equals("NONE")) {
-                Picasso.get().load(mLikeCampaign.getVideoThumb()).transform(new CircleTransform())
-                        .into(mVideoThumb);
+               try {
+                   Picasso.get().load(mLikeCampaign.getVideoThumb()).error(requireActivity().getDrawable(R.drawable.play)).transform(new CircleTransform())
+                           .into(mVideoThumb);
+               } catch (Exception e) {
+                   e.printStackTrace();
+               }
                 String img = mLikeCampaign.getVideoThumb();
                 try {
                     String expiredTime = img.substring(img.lastIndexOf("expires=") + 8, img.lastIndexOf("expires=") + 18);
@@ -1090,8 +1105,12 @@ public class LikecheoFragment extends Fragment
                     if (mLikeCampaign != null && mLikeCampaign.getVideoId() != null && mLikeCampaign.getVideoId().equals(itemVideo.getId())) {
                         String img = itemVideo.getImageUrl();
                         if (img != null) {
-                            Picasso.get().load(img).transform(new CircleTransform())
-                                    .into(mVideoThumb);
+                            try {
+                                Picasso.get().load(img).transform(new CircleTransform()).error(requireActivity().getDrawable(R.drawable.play))
+                                        .into(mVideoThumb);
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
                             final DatabaseReference campaignCurrentRef = FirebaseUtil.getLikeCampaignsRef().child(mLikeCampaign.getKey());
                             campaignCurrentRef.runTransaction(new Transaction.Handler() {
                                 @NonNull

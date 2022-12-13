@@ -71,7 +71,6 @@ public class ChonVideoActivity extends AppCompatActivity {
     private Button mBtnAdd;
     String mUserNameForCampaign;
     String mUserImgForCampaign;
-    boolean isNeedShowAddVideoLayout = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -115,7 +114,7 @@ public class ChonVideoActivity extends AppCompatActivity {
                                 String imageUrl = "";
                                 String baseUrl = "";
                                 Elements findImgUrlElementList = document.getElementsByTag("meta");
-                                for (Element e:findImgUrlElementList) {
+                                for (Element e : findImgUrlElementList) {
                                     String content = e.attributes().get("content");
                                     if (content.contains("expires=")) {
                                         imageUrl = content;
@@ -140,6 +139,7 @@ public class ChonVideoActivity extends AppCompatActivity {
 
                             } catch (Exception e) {
                                 e.printStackTrace();
+                                Log.e("khang", e.toString());
                                 Toast.makeText(ChonVideoActivity.this, getString(R.string.wrong_video_link), Toast.LENGTH_SHORT).show();
                             }
 
@@ -193,25 +193,25 @@ public class ChonVideoActivity extends AppCompatActivity {
         String username = PreferenceUtil.getStringPref(PreferenceUtil.TIKTOK_USER_NAME, "");
         String userImg = PreferenceUtil.getStringPref(PreferenceUtil.TIKTOK_USER_PHOTO, "NONE");
         mUserTikToklink = AppUtil.TIKTOK_PREFIX_LINK + username;
-        ItemURLTiktok url = new ItemURLTiktok(mUserTikToklink, listener);
-        if (!userImg.equals("NONE")) {
-            try {
-                String expiredTime = userImg.substring(userImg.lastIndexOf("expires=") + 8, userImg.lastIndexOf("expires=") + 18);
-                Log.d("khang", "expiredTime: " + expiredTime + " / " + System.currentTimeMillis());
-                long l = Long.parseLong(expiredTime);
-                if (l < System.currentTimeMillis() / 1000) {
-                    Log.d("khang", "da het han" + expiredTime);
-                    url.getUserInfo();
-                } else {
-                    Log.d("khang", "chua het han" + expiredTime);
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        } else {
-            url.getUserInfo();
-        }
-        url.getListVideoFromUser();
+//        ItemURLTiktok url = new ItemURLTiktok(mUserTikToklink, listener);
+//        if (!userImg.equals("NONE")) {
+//            try {
+//                String expiredTime = userImg.substring(userImg.lastIndexOf("expires=") + 8, userImg.lastIndexOf("expires=") + 18);
+//                Log.d("khang", "expiredTime: " + expiredTime + " / " + System.currentTimeMillis());
+//                long l = Long.parseLong(expiredTime);
+//                if (l < System.currentTimeMillis() / 1000) {
+//                    Log.d("khang", "da het han" + expiredTime);
+//                    url.getUserInfo();
+//                } else {
+//                    Log.d("khang", "chua het han" + expiredTime);
+//                }
+//            } catch (Exception e) {
+//                e.printStackTrace();
+//            }
+//        } else {
+//            url.getUserInfo();
+//        }
+//        url.getListVideoFromUser();
         getVideoListByWebview();
         showProgressDialog();
 
@@ -279,6 +279,7 @@ public class ChonVideoActivity extends AppCompatActivity {
     private WebView mWebView;
 
     private void getVideoListByWebview() {
+        showProgressDialog();
         ItemURLTiktok url = new ItemURLTiktok(mUserTikToklink, null);
         if (url.getTYPE_URL() == ItemURLTiktok.URL_TYPE_USER) {
             Log.e("khang", "onCreate: link " + url.getBaseUrl());
@@ -297,7 +298,6 @@ public class ChonVideoActivity extends AppCompatActivity {
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
-                            hideProgressDialog();
                             Log.e("khang", "onLoadFinish: " + url);
 
 
@@ -309,7 +309,7 @@ public class ChonVideoActivity extends AppCompatActivity {
                                     try {
                                         String videoUrl = video.attributes().get("href");
                                         String[] splitUrl = videoUrl.split("/");
-                                        String id = splitUrl[splitUrl.length-1];
+                                        String id = splitUrl[splitUrl.length - 1];
                                         item.setId(id);
                                         item.setWebVideoUrl(videoUrl);
 
@@ -351,13 +351,8 @@ public class ChonVideoActivity extends AppCompatActivity {
                                         }
                                     });
                                     mAddVideoLayout.setVisibility(View.GONE);
-                                    isNeedShowAddVideoLayout = false;
                                 } else {
-                                    if (isNeedShowAddVideoLayout) {
-                                        mAddVideoLayout.setVisibility(View.VISIBLE);
-                                    } else {
-                                        isNeedShowAddVideoLayout = true;
-                                    }
+                                    mAddVideoLayout.setVisibility(View.VISIBLE);
                                 }
 
                                 mWebView.post(new Runnable() {
@@ -369,14 +364,11 @@ public class ChonVideoActivity extends AppCompatActivity {
 
                             } else if (listVideoElement.size() == 0) {
                                 Log.e("khang", "onLoadFinish: empty video");
-                                if (isNeedShowAddVideoLayout) {
-                                    mAddVideoLayout.setVisibility(View.VISIBLE);
-                                } else {
-                                    isNeedShowAddVideoLayout = true;
-                                }
+                                mAddVideoLayout.setVisibility(View.VISIBLE);
                             } else {
                                 Log.e("khang", "onLoadFinish: list video exist");
                             }
+                            hideProgressDialog();
                         }
                     });
 
@@ -407,13 +399,8 @@ public class ChonVideoActivity extends AppCompatActivity {
                 mAdapter.getList().addAll(result.getResult());
                 mAdapter.notifyDataSetChanged();
                 mAddVideoLayout.setVisibility(View.GONE);
-                isNeedShowAddVideoLayout = false;
             } else {
-                if (isNeedShowAddVideoLayout) {
-                    mAddVideoLayout.setVisibility(View.VISIBLE);
-                } else {
-                    isNeedShowAddVideoLayout = true;
-                }
+                mAddVideoLayout.setVisibility(View.VISIBLE);
             }
         }
 
