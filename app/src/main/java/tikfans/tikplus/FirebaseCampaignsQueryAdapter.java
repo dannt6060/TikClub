@@ -16,6 +16,7 @@
 
 package tikfans.tikplus;
 
+import android.annotation.SuppressLint;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Build;
@@ -32,6 +33,7 @@ import androidx.appcompat.widget.PopupMenu;
 import androidx.fragment.app.FragmentActivity;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.firebase.crashlytics.FirebaseCrashlytics;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -40,12 +42,15 @@ import com.google.firebase.database.ValueEventListener;
 import java.util.ArrayList;
 import java.util.List;
 
+import tikfans.tikplus.model.ItemVideo;
 import tikfans.tikplus.subviewlike.LikeChiTietChienDichActivity;
 import tikfans.tikplus.model.LikeCampaign;
 import tikfans.tikplus.subviewlike.SubChiTietChienDichActivity;
 import tikfans.tikplus.util.FirebaseUtil;
 import tikfans.tikplus.model.ChienDichCuaNguoiDungHienTai;
 import tikfans.tikplus.model.SubCampaign;
+import tikfans.tikplus.util.PreferenceUtil;
+import tikfans.tikplus.util.SQLiteDatabaseHandler;
 
 import static tikfans.tikplus.util.AppUtil.CAMPAIGN_PATH_STRING_EXTRA;
 
@@ -73,7 +78,7 @@ public class FirebaseCampaignsQueryAdapter extends RecyclerView.Adapter<ChienDic
     }
 
     @Override
-    public void onBindViewHolder(final ChienDichViewHolder holder, final int position) {
+    public void onBindViewHolder(final ChienDichViewHolder holder, @SuppressLint("RecyclerView") final int position) {
         if (mCampaignPaths.get(position).second.getType().equals(FirebaseUtil.SUB_CAMPAIGNS)) {
             //for sub campaign
             DatabaseReference ref = FirebaseUtil.getSubCampaignsRef().child(mCampaignPaths.get(position).second.getKey());
@@ -88,6 +93,27 @@ public class FirebaseCampaignsQueryAdapter extends RecyclerView.Adapter<ChienDic
 //                        FirebaseUtil.getCampaignCurrentUser().child(mCampaignPaths.get(position).first).removeValue();
                         return;
                     }
+                    // to update image
+                    try {
+                        String img = subCampaign.getUserImg();
+                        String expiredTime = img.substring(img.lastIndexOf("expires=") + 8, img.lastIndexOf("expires=") + 18);
+                        Log.d("khang", "expiredTime: " + expiredTime + " / " + System.currentTimeMillis());
+
+                        long l = Long.parseLong(expiredTime);
+                        if (l < System.currentTimeMillis() / 1000) {
+                            Log.d("khang", "da het han" + expiredTime);
+                            String mUserNameForCampaign = PreferenceUtil.getStringPref(PreferenceUtil.TIKTOK_USER_NAME_FOR_CAMPAIGN, "NONE");
+                            String mUserImgForCampaign = PreferenceUtil.getStringPref(PreferenceUtil.TIKTOK_USER_PHOTO_FOR_CAMPAIGN, "NONE");
+                            if (subCampaign.getUserName().equals(mUserNameForCampaign)) {
+                                subCampaign.setUserImg(mUserImgForCampaign);
+                                dataSnapshot.getRef().child("userImg").setValue(mUserImgForCampaign);
+                            }
+                        } else {
+                            Log.d("khang", "chua het han" + expiredTime);
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
                     mOnSetupViewListener.onSetupView(holder, subCampaign, null);
                 }
 
@@ -96,7 +122,7 @@ public class FirebaseCampaignsQueryAdapter extends RecyclerView.Adapter<ChienDic
                     Log.e(TAG, "Error occurred: " + firebaseError.getMessage());
                 }
             };
-            ref.addValueEventListener(campaignListener);
+            ref.addListenerForSingleValueEvent(campaignListener);
             holder.mCampaignRef = ref;
             holder.mCampaignRefListener = campaignListener;
             holder.setItemClickListener(new ChienDichViewHolder.ItemClickListener() {
@@ -167,6 +193,31 @@ public class FirebaseCampaignsQueryAdapter extends RecyclerView.Adapter<ChienDic
 //                        FirebaseUtil.getCampaignCurrentUser().child(mCampaignPaths.get(position).first).removeValue();
                         return;
                     }
+
+                    //update campaign img
+                    try {
+                        String img = likeCampaign.getVideoThumb();
+                        String expiredTime = "0";
+                        if (img != null && img.length() > 50) {
+                            expiredTime = img.substring(img.lastIndexOf("expires=") + 8, img.lastIndexOf("expires=") + 18);
+                        }
+                        Log.d("khangcheckfollow", "expiredTime: " + expiredTime + " / " + System.currentTimeMillis());
+
+                        long l = Long.parseLong(expiredTime);
+                        if (l < System.currentTimeMillis() / 1000) {
+                            if (itemVideoArrayList != null && itemVideoArrayList.size() > 0) {
+                                for (int i = 0; i < itemVideoArrayList.size(); i++) {
+                                    if (likeCampaign.getVideoId().equals(itemVideoArrayList.get(i).getId())) {
+                                        likeCampaign.setVideoThumb(itemVideoArrayList.get(i).getImageUrl());
+                                        dataSnapshot.getRef().child("videoThumb").setValue(itemVideoArrayList.get(i).getImageUrl());
+                                    }
+                                }
+                            }
+
+                        }
+                    } catch (Exception e) {
+                        FirebaseCrashlytics.getInstance().recordException(e);
+                    }
                     mOnSetupViewListener.onSetupView(holder, null, likeCampaign);
                 }
 
@@ -175,7 +226,7 @@ public class FirebaseCampaignsQueryAdapter extends RecyclerView.Adapter<ChienDic
                     Log.e(TAG, "Error occurred: " + firebaseError.getMessage());
                 }
             };
-            ref.addValueEventListener(campaignListener);
+            ref.addListenerForSingleValueEvent(campaignListener);
             holder.mCampaignRef = ref;
             holder.mCampaignRefListener = campaignListener;
             holder.setItemClickListener(new ChienDichViewHolder.ItemClickListener() {
@@ -244,8 +295,18 @@ public class FirebaseCampaignsQueryAdapter extends RecyclerView.Adapter<ChienDic
         return mCampaignPaths.size();
     }
 
+    private SQLiteDatabaseHandler db;
+    ArrayList<ItemVideo> itemVideoArrayList;
     public void setActivity(FragmentActivity activity) {
         this.mActivity = activity;
+
+        db = new SQLiteDatabaseHandler(mActivity);
+        try {
+            itemVideoArrayList = db.getAllItemVideo();
+        } catch (Exception e) {
+            FirebaseCrashlytics.getInstance().recordException(e);
+        }
+
     }
 
     public interface OnSetupViewListener {

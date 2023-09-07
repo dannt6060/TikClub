@@ -1,6 +1,5 @@
 package tikfans.tikplus;
 
-import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.app.ProgressDialog;
@@ -13,6 +12,7 @@ import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.CountDownTimer;
+import android.os.Handler;
 import android.util.Log;
 import android.view.MenuItem;
 import android.view.View;
@@ -44,9 +44,6 @@ import com.android.billingclient.api.Purchase;
 import com.android.billingclient.api.PurchasesResponseListener;
 import com.android.billingclient.api.PurchasesUpdatedListener;
 import com.android.billingclient.api.QueryPurchasesParams;
-import com.android.billingclient.api.SkuDetails;
-import com.android.billingclient.api.SkuDetailsParams;
-import com.android.billingclient.api.SkuDetailsResponseListener;
 import com.google.android.gms.ads.MobileAds;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.navigation.NavigationBarView;
@@ -56,9 +53,7 @@ import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.MutableData;
 import com.google.firebase.database.ServerValue;
-import com.google.firebase.database.Transaction;
 import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.remoteconfig.FirebaseRemoteConfig;
 import com.squareup.picasso.Picasso;
@@ -71,17 +66,12 @@ import com.unity3d.services.banners.BannerErrorInfo;
 import com.unity3d.services.banners.BannerView;
 import com.unity3d.services.banners.UnityBannerSize;
 
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Random;
 
-import tikfans.tikplus.model.ItemVideo;
 import tikfans.tikplus.model.LogAdsReward;
-import tikfans.tikplus.model.ResultUser;
-import tikfans.tikplus.model.ResultVideo;
 import tikfans.tikplus.subviewlike.LikecheoFragment;
-import tikfans.tikplus.subviewlike.SubTaoChienDichActivity;
 import tikfans.tikplus.subviewlike.SubcheoFragment;
 import tikfans.tikplus.util.AppUtil;
 import tikfans.tikplus.util.CircleTransform;
@@ -93,6 +83,7 @@ import tikfans.tikplus.model.LogPurchase;
 import tikfans.tikplus.util.SQLiteDatabaseHandler;
 import tikfans.tikplus.util.SecureDate;
 
+import static tikfans.tikplus.MyChannelApplication.countToday;
 import static tikfans.tikplus.util.AppUtil.SKU_HUGE_PACKAGE;
 import static tikfans.tikplus.util.AppUtil.SKU_LARGE_PACKAGE;
 import static tikfans.tikplus.util.AppUtil.SKU_LARGE_PROMOTE_PACKAGE;
@@ -101,6 +92,7 @@ import static tikfans.tikplus.util.AppUtil.SKU_MAX_PROMOTE_PACKAGE;
 import static tikfans.tikplus.util.AppUtil.SKU_MINI_PACKAGE;
 import static tikfans.tikplus.util.AppUtil.SKU_MINI_PROMOTE_PACKAGE;
 import static tikfans.tikplus.util.AppUtil.SKU_SMALL_PACKAGE;
+import static tikfans.tikplus.util.PreferenceUtil.IS_FTU;
 
 
 public class MainActivity extends AppCompatActivity
@@ -127,7 +119,7 @@ public class MainActivity extends AppCompatActivity
 
     //unity
     private View rootView;
-    private String unityGameID = "3737693";
+    private String unityGameID = "5252996";
     private boolean testMode = false;
     private String placementId = "rewardedVideo";
     String topAdUnitId = "banner";
@@ -268,7 +260,8 @@ public class MainActivity extends AppCompatActivity
     };
 
     boolean isUnityAdsLoaded = false;
-    public void DisplayRewardedAd () {
+
+    public void DisplayRewardedAd() {
         if (isUnityAdsLoaded) {
             UnityAds.show(MainActivity.this, placementId, new UnityAdsShowOptions(), showListener);
         } else {
@@ -435,24 +428,6 @@ public class MainActivity extends AppCompatActivity
                     } catch (NullPointerException e) {
                         e.printStackTrace();
                     }
-                } else {
-                    coinRef.runTransaction(new Transaction.Handler() {
-                        @NonNull
-                        @Override
-                        public Transaction.Result doTransaction(@NonNull MutableData mutableData) {
-                            try {
-                                mutableData.setValue(0);
-                            } catch (ClassCastException e) {
-                                Log.d("Khang", "" + getString(R.string.account_error));
-                            }
-                            return Transaction.success(mutableData);
-                        }
-
-                        @Override
-                        public void onComplete(@Nullable DatabaseError databaseError, boolean b, @Nullable DataSnapshot dataSnapshot) {
-
-                        }
-                    });
                 }
             }
 
@@ -501,13 +476,47 @@ public class MainActivity extends AppCompatActivity
                     .transform(new CircleTransform())
                     .into(mImageViewPhoto);
         }
+
+        if (!AppUtil.isNetworkAvailable(getApplicationContext())) {
+            AppUtil.showAlertDialog(MainActivity.this, getString(R.string.khong_ket_noi), getString(R.string.khong_ket_noi_chi_tiet));
+        } else {
+            try {
+                int versionCode = MainActivity.this.getPackageManager().getPackageInfo(MainActivity.this.getPackageName(), 0).versionCode;
+                if (versionCode < FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_VERSION)) {
+                    AlertDialog alertDialog = new AlertDialog.Builder(MainActivity.this).setTitle(getString(R.string.cap_nhat_app_tieu_deu)).
+                            setMessage(getString(R.string.cap_nhat_app_chi_tiet)).
+                            setNegativeButton("CANCEL", new DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(DialogInterface dialog, int which) {
+                                    finish();
+                                }
+                            }).
+                            setPositiveButton("UPDATE", new DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(DialogInterface dialog, int which) {
+                                    dialog.dismiss();
+                                    openAppOrGoToStore(FirebaseRemoteConfig.getInstance().getString(RemoteConfigUtil.TIKFANS_PACKAGE_APP));
+                                    finish();
+                                }
+                            }).create();
+                    alertDialog.show();
+                }
+            } catch (PackageManager.NameNotFoundException e) {
+                e.printStackTrace();
+            }
+        }
+
     }
 
+    int startBillingCount = 0;
     private void startBillingConnectTion() {
         billingClient.startConnection(new BillingClientStateListener() {
             @Override
             public void onBillingServiceDisconnected() {
-                startBillingConnectTion();
+                if (startBillingCount < 10) {
+                    startBillingCount++;
+                    startBillingConnectTion();
+                }
             }
 
             @Override
@@ -722,21 +731,10 @@ public class MainActivity extends AppCompatActivity
             buyIntent.putExtra(AppUtil.VIP_ACCOUNT_EXTRA, false);
             startActivity(buyIntent);
         } else if (id == R.id.nav_xem_quang_cao) {
-           Log.d("Khang", "showads");
-           DisplayRewardedAd();
+            Log.d("Khang", "showads");
+            DisplayRewardedAd();
         } else if (id == R.id.nav_subchat) {
-            Uri uri = Uri.parse("market://details?id=" + FirebaseRemoteConfig.getInstance().getString(RemoteConfigUtil.SUBCHAT_PACKAGE));
-            Intent goToMarket = new Intent(Intent.ACTION_VIEW, uri);
-            // To count with Play market backstack, After pressing back button,
-            // to taken back to our application, we need to add following flags to intent.
-            goToMarket.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY |
-                    Intent.FLAG_ACTIVITY_CLEAR_WHEN_TASK_RESET |
-                    Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
-            try {
-                startActivity(goToMarket);
-            } catch (ActivityNotFoundException e) {
-                openAppOrGoToStore(FirebaseRemoteConfig.getInstance().getString(RemoteConfigUtil.SUBCHAT_PACKAGE));
-            }
+            openAppOrGoToStore(FirebaseRemoteConfig.getInstance().getString(RemoteConfigUtil.SUBCHAT_PACKAGE));
         } else if (id == R.id.nav_faq) {
             Intent faqIntent = new Intent(MainActivity.this, CauHoiThuongGapActivity.class);
             startActivity(faqIntent);
@@ -772,24 +770,15 @@ public class MainActivity extends AppCompatActivity
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             startActivity(intent);
         } else {
-            Uri uri = Uri.parse("market://details?id=" + packageApp);
-            Intent goToMarket = new Intent(Intent.ACTION_VIEW, uri);
-            // To count with Play market backstack, After pressing back button,
-            // to taken back to our application, we need to add following flags to intent.
-            goToMarket.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY |
-                    Intent.FLAG_ACTIVITY_CLEAR_WHEN_TASK_RESET |
-                    Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
-            try {
-                startActivity(goToMarket);
-            } catch (ActivityNotFoundException e) {
-                startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(
-                        "http://play.google.com/store/apps/details?id=" +
-                                packageApp)));
-            }
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(
+                    "http://play.google.com/store/apps/details?id=" +
+                            packageApp)));
         }
     }
 
     private void signOut() {
+        //MyChannelApplication.savedCountToday = countToday;
+        countToday = null;
         mFirebaseAuth.signOut();
         db.removeAll();
         startActivity(new Intent(getApplication(), ManHinhDangNhapActivity.class));
@@ -814,20 +803,20 @@ public class MainActivity extends AppCompatActivity
                 @Override
                 public void onRatingChanged(RatingBar ratingBar, float rating, boolean fromUser) {
                     if (rating > 4.5) {
-                        Uri uri = Uri.parse("market://details?id=" + getApplicationContext().getPackageName());
-                        Intent goToMarket = new Intent(Intent.ACTION_VIEW, uri);
-                        // To count with Play market backstack, After pressing back button,
-                        // to taken back to our application, we need to add following flags to intent.
-                        goToMarket.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY |
-                                Intent.FLAG_ACTIVITY_CLEAR_WHEN_TASK_RESET |
-                                Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
-                        try {
-                            startActivity(goToMarket);
-                        } catch (ActivityNotFoundException e) {
-                            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(
-                                    "http://play.google.com/store/apps/details?id=" +
-                                            getApplicationContext().getPackageName())));
-                        }
+//                        Uri uri = Uri.parse("market://details?id=" + getApplicationContext().getPackageName());
+//                        Intent goToMarket = new Intent(Intent.ACTION_VIEW, uri);
+//                        // To count with Play market backstack, After pressing back button,
+//                        // to taken back to our application, we need to add following flags to intent.
+//                        goToMarket.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY |
+//                                Intent.FLAG_ACTIVITY_CLEAR_WHEN_TASK_RESET |
+//                                Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
+//                        try {
+//                            startActivity(goToMarket);
+//                        } catch (ActivityNotFoundException e) {
+                        startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(
+                                "http://play.google.com/store/apps/details?id=" +
+                                        getApplicationContext().getPackageName())));
+//                        }
                     } else {
                         Toast.makeText(getApplicationContext(), getString(R.string.thank_for_rating), Toast.LENGTH_SHORT).show();
                     }

@@ -239,6 +239,15 @@
                             android:layout_alignParentEnd="true"
                             android:text="4.99$"
                             android:textSize="@dimen/buy_text_size" />
+
+                        <TextView
+                            android:id="@+id/txt_save_small"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_below="@id/txtCoinBuySmallPackage"
+                            android:text="@string/save_coin"
+                            android:textColor="@color/colorlist_12db47"
+                            android:textSize="@dimen/save_text_size"></TextView>
                     </RelativeLayout>
                 </androidx.cardview.widget.CardView>
 
@@ -275,6 +284,15 @@
                             android:layout_alignParentRight="true"
                             android:text="9.99$"
                             android:textSize="@dimen/buy_text_size" />
+
+                        <TextView
+                            android:id="@+id/txt_save_large"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_below="@id/txtCoinBuyLagerPackage"
+                            android:text="@string/save_coin"
+                            android:textColor="@color/colorlist_12db47"
+                            android:textSize="@dimen/save_text_size"></TextView>
                     </RelativeLayout>
                 </androidx.cardview.widget.CardView>
 
@@ -311,6 +329,15 @@
                             android:layout_alignParentRight="true"
                             android:text="19.99$"
                             android:textSize="@dimen/buy_text_size" />
+
+                        <TextView
+                            android:id="@+id/txt_save_huge"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_below="@id/txtCoinBuyHugePackage"
+                            android:text="@string/save_coin"
+                            android:textColor="@color/colorlist_12db47"
+                            android:textSize="@dimen/save_text_size"></TextView>
                     </RelativeLayout>
                 </androidx.cardview.widget.CardView>
 
@@ -347,6 +374,15 @@
                             android:layout_alignParentRight="true"
                             android:text="99.99$"
                             android:textSize="@dimen/buy_text_size" />
+
+                        <TextView
+                            android:id="@+id/txt_save_max"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_below="@id/txtCoinBuyMaxPackage"
+                            android:text="@string/save_coin"
+                            android:textColor="@color/colorlist_12db47"
+                            android:textSize="@dimen/save_text_size"></TextView>
                     </RelativeLayout>
                 </androidx.cardview.widget.CardView>
 

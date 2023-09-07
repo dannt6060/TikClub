@@ -5,7 +5,6 @@ public class SubCampaign {
     public String userName;
     public String userImg;
     public String videoId;
-    public String videoLink;
     public String getVideoId() {
         return videoId;
     }
@@ -17,14 +16,6 @@ public class SubCampaign {
     public int timeR;
 
     public Object creTime; // create timestamp
-
-    public String getVideoLink() {
-        return videoLink;
-    }
-
-    public void setVideoLink(String videoLink) {
-        this.videoLink = videoLink;
-    }
 
     public Object lasTime; // last change time stamp
     public Object finTime; // finish time stamp
@@ -66,13 +57,12 @@ public class SubCampaign {
         this.userImg = userImg;
     }
 
-    public SubCampaign(String ownId, String userName, String userImg, String videoId, String videoLink, int order, long coinRate, int timeR, Object creTime, Object lasTime, Object finTime) {
+    public SubCampaign(String key, String ownId, String userName, String userImg, String videoId, int order, long coinRate, int timeR, Object creTime, Object lasTime, Object finTime) {
         this.ownId = ownId;
         this.userName = userName;
         this.videoId = videoId;
         this.creTime = creTime;
         this.lasTime = lasTime;
-        this.videoLink = videoLink;
         this.finTime = finTime;
         this.order = order;
         this.coinRate = coinRate;
@@ -80,7 +70,7 @@ public class SubCampaign {
         this.userImg = userImg;
 
         curSub = 0;
-        key = "wrongkey";
+        this.key = key;
         ip = true;
     }
 

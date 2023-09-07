@@ -47,9 +47,11 @@ public class VideoAdapter extends RecyclerView.Adapter<VideoAdapter.ViewHolder> 
 
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-        Picasso.get()
-                .load(list.get(position).getImageUrl())
-                .into(holder.imgThumb);
+        if (list.get(position).getImageUrl() != null && list.get(position).getImageUrl().length() > 0) {
+            Picasso.get()
+                    .load(list.get(position).getImageUrl())
+                    .into(holder.imgThumb);
+        }
     }
 
     @Override

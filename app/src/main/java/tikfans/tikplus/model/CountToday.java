@@ -17,37 +17,62 @@
 
 package tikfans.tikplus.model;
 
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-
-import tikfans.tikplus.util.AppUtil;
-import tikfans.tikplus.util.SecureDate;
+import androidx.annotation.NonNull;
 
 public class CountToday {
-    public String today;
-    public long count;
+    public long sub;
+    public long like;
+    public Object time;
+    public Object lastTime;
+
+
+    public long getLike() {
+        return like;
+    }
+
+    public void setLike(long like) {
+        this.like = like;
+    }
+
+    public Object getTime() {
+        return time;
+    }
+
+    public void setTime(Object time) {
+        this.time = time;
+    }
+
+    public Object getLastTime() {
+        return lastTime;
+    }
+
+    public void setLastTime(Object lastTime) {
+        this.lastTime = lastTime;
+    }
+
+    public CountToday(long sub, long like, Object time, Object lastTime) {
+        this.sub = sub;
+        this.like = like;
+        this.time = time;
+        this.lastTime = lastTime;
+    }
+
     public CountToday() {
-        Date date = SecureDate.getInstance().getDate();
-        DateFormat df;
-        df = new SimpleDateFormat(AppUtil.FORMAT_DATE);
-        today = df.format(date);
-        count = 0;
+        sub = 0;
+        like = 0;
+        time = 0L;
+        lastTime = 0L;
     }
 
-    public String getToday() {
-        return today;
+    public long getSub() {
+        return sub;
     }
 
-    public void setToday(String today) {
-        this.today = today;
+    public void setSub(long sub) {
+        this.sub = sub;
     }
-
-    public long getCount() {
-        return count;
-    }
-
-    public void setCount(long count) {
-        this.count = count;
+    @NonNull
+    public String toString() {
+        return "Sub: " + sub + " like: " + like;
     }
 }

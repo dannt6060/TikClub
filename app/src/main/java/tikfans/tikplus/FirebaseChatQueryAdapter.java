@@ -16,10 +16,8 @@
 
 package tikfans.tikplus;
 
-import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.net.Uri;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.MenuItem;
 import android.view.View;
@@ -29,6 +27,8 @@ import android.widget.Toast;
 import androidx.appcompat.widget.PopupMenu;
 import androidx.fragment.app.FragmentActivity;
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.google.firebase.crashlytics.FirebaseCrashlytics;
 
 import java.util.ArrayList;
 
@@ -83,10 +83,15 @@ public class FirebaseChatQueryAdapter extends RecyclerView.Adapter<ChatViewHolde
                     intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                     mActivity.startActivity(intent);
                 } catch (Exception e3) {
-                    intent = new Intent(Intent.ACTION_VIEW);
-                    intent.setData(Uri.parse(videoWebUrl));
-                    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                    mActivity.startActivity(intent);
+                    try {
+                        intent = new Intent(Intent.ACTION_VIEW);
+                        intent.setData(Uri.parse(videoWebUrl));
+                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        mActivity.startActivity(intent);
+                    } catch (Exception e4) {
+                        e.printStackTrace();
+                        FirebaseCrashlytics.getInstance().recordException(e4);
+                    }
                 }
             }
         }

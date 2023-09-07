@@ -226,7 +226,12 @@ public class ChatFragment extends Fragment implements SwipeRefreshLayout.OnRefre
                     FirebaseUtil.getCoinCurrentAccountRef().addListenerForSingleValueEvent(new ValueEventListener() {
                         @Override
                         public void onDataChange(DataSnapshot dataSnapshot) {
-                            long currentSubCoin = (long) dataSnapshot.getValue();
+                            long currentSubCoin = 0;
+                            try {
+                                currentSubCoin =(long) dataSnapshot.getValue();
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
                             if (currentSubCoin <= 0) {
                                 hideProgressDialog();
                                 Toast.makeText(getActivity(), getString(R.string.not_enough_coin), Toast.LENGTH_SHORT).show();

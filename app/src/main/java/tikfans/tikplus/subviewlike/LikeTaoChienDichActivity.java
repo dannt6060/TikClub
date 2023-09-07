@@ -11,7 +11,6 @@ import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
-import android.view.MenuItem;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
@@ -20,20 +19,15 @@ import android.widget.NumberPicker;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
-import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.MutableData;
 import com.google.firebase.database.ServerValue;
-import com.google.firebase.database.Transaction;
 import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.remoteconfig.FirebaseRemoteConfig;
 import com.squareup.picasso.Picasso;
@@ -45,7 +39,6 @@ import com.unity3d.ads.UnityAdsShowOptions;
 
 import java.util.ArrayList;
 
-import tikfans.tikplus.MainActivity;
 import tikfans.tikplus.MuaHangActivity;
 import tikfans.tikplus.MyChannelApplication;
 import tikfans.tikplus.R;
@@ -55,7 +48,6 @@ import tikfans.tikplus.model.LogAdsReward;
 import tikfans.tikplus.util.AppUtil;
 import tikfans.tikplus.util.CustomTextView;
 import tikfans.tikplus.util.FirebaseUtil;
-import tikfans.tikplus.util.PreferenceUtil;
 import tikfans.tikplus.util.RemoteConfigUtil;
 
 import static tikfans.tikplus.util.AppUtil.SELECTED_VIDEO_ID_STRING_EXTRA;
@@ -85,7 +77,7 @@ public class LikeTaoChienDichActivity extends AppCompatActivity implements View.
 
     //unity
     private View rootView;
-    private String unityGameID = "3737693";
+    private String unityGameID = "5252996";
     private boolean testMode = false;
     private String placementId = "rewardedVideo";
 
@@ -180,7 +172,7 @@ public class LikeTaoChienDichActivity extends AppCompatActivity implements View.
         mVideoThumbnail = intent.getStringExtra(SELECTED_VIDEO_THUMBNAIL_STRING_EXTRA);
         mVideoWebLink = intent.getStringExtra(SELECTED_VIDEO_WEB_LINK_STRING_EXTRA);
         mVideoId = intent.getStringExtra(SELECTED_VIDEO_ID_STRING_EXTRA);
-        mUserName = PreferenceUtil.getStringPref(PreferenceUtil.TIKTOK_USER_NAME, "NONE");
+        mUserName = intent.getStringExtra(AppUtil.SELECTED_USER_NAME_FOR_CAMPAIGN_EXTRA);
 
         mVideoIdRunningCampaignList = intent.getStringArrayListExtra(AppUtil.RUNNING_CAMPAIGN_PATH_STRING_EXTRA);
         mBtnTotalCost = findViewById(R.id.btn_total_cost);
@@ -303,15 +295,15 @@ public class LikeTaoChienDichActivity extends AppCompatActivity implements View.
             txtTitle.setText(getString(R.string.so_luot_thich));
             txtDetail.setText(getString(R.string.so_luot_thich_chi_tiet));
             numberPicker.setMinValue(1);
-            numberPicker.setMaxValue(19);
-            numberPicker.setDisplayedValues(new String[]{"10", "20", "30", "40", "50", "60", "70", "80", "90", "100", "200", "300", "400", "500", "600", "700", "800", "900", "1000"});
+            numberPicker.setMaxValue(20);
+            numberPicker.setDisplayedValues(new String[]{"10", "20", "30", "40", "50", "60", "70", "80", "90", "100", "200", "300", "400", "500", "600", "700", "800", "900", "1000", "5000"});
             numberPicker.setValue(mCurrentPosLikePicker);
         } else {
             txtTitle.setText(getString(R.string.thoi_gian_yeu_cau));
             txtDetail.setText(getString(R.string.thoi_gian_yeu_cau));
             numberPicker.setMinValue(1);
-            numberPicker.setMaxValue(19);
-            numberPicker.setDisplayedValues(new String[]{"5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23"});
+            numberPicker.setMaxValue(20);
+            numberPicker.setDisplayedValues(new String[]{"5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24"});
 
             numberPicker.setValue(mCurrentPosTimePicker);
         }
@@ -331,6 +323,9 @@ public class LikeTaoChienDichActivity extends AppCompatActivity implements View.
                         mNumberLikeOrder = (mCurrentPosLikePicker) * 10;
                     } else {
                         mNumberLikeOrder = (mCurrentPosLikePicker - 9) * 100;
+                    }
+                    if (mCurrentPosLikePicker == 20) {
+                        mNumberLikeOrder = 5000;
                     }
                 } else {
                     mCurrentPosTimePicker = numberPicker.getValue();
@@ -374,12 +369,16 @@ public class LikeTaoChienDichActivity extends AppCompatActivity implements View.
         final DatabaseReference campaignCurrentUserRef = FirebaseUtil.getCampaignCurrentUser();
         long coinRate = FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_LIKE_CAMPAIGN_COIN_COST_KEY);
 
-        final LikeCampaign campaign = new LikeCampaign(user.getUid(), mUserName, mVideoId, mVideoWebLink, mVideoThumbnail, numberLikeOrder, coinRate, mTimeRequired, ServerValue.TIMESTAMP, ServerValue.TIMESTAMP, -1);
-
         FirebaseUtil.getCoinCurrentAccountRef().addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
-                long currentSubCoin = (long) dataSnapshot.getValue();
+                long currentSubCoin = 0;
+                try {
+                    currentSubCoin = (long) dataSnapshot.getValue();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+
                 if (currentSubCoin <= 0 || numberLikeOrder < 10) {
                     hideProgressDialog();
                     Toast.makeText(getApplicationContext(), getString(R.string.not_enough_coin), Toast.LENGTH_SHORT).show();
@@ -395,7 +394,11 @@ public class LikeTaoChienDichActivity extends AppCompatActivity implements View.
                     return;
                 }
                 //create new campaign
-                campaignsRef.push().setValue(campaign, new DatabaseReference.CompletionListener() {
+                String key = campaignsRef.push().getKey();
+                if (key == null || key.length() <=0) return;
+                final LikeCampaign campaign = new LikeCampaign(key, user.getUid(), mUserName, mVideoId, mVideoThumbnail, numberLikeOrder, coinRate, mTimeRequired, ServerValue.TIMESTAMP, ServerValue.TIMESTAMP, -1);
+
+                campaignsRef.child(key).setValue(campaign, new DatabaseReference.CompletionListener() {
                     @Override
                     public void onComplete(DatabaseError error, final DatabaseReference firebase) {
                         if (error != null) {
@@ -408,26 +411,6 @@ public class LikeTaoChienDichActivity extends AppCompatActivity implements View.
                         } else {
                             ChienDichCuaNguoiDungHienTai chienDichCuaNguoiDungHienTai = new ChienDichCuaNguoiDungHienTai(firebase.getKey(), FirebaseUtil.LIKE_CAMPAIGNS);
                             campaignCurrentUserRef.push().setValue(chienDichCuaNguoiDungHienTai);
-                            firebase.runTransaction(new Transaction.Handler() {
-                                @NonNull
-                                @Override
-                                public Transaction.Result doTransaction(@NonNull MutableData mutableData) {
-                                    LikeCampaign likeCampaign = mutableData.getValue(LikeCampaign.class);
-                                    if (likeCampaign == null) {
-                                        return Transaction.success(mutableData);
-                                    }
-
-                                    likeCampaign.setKey(firebase.getKey());
-                                    mutableData.setValue(likeCampaign);
-                                    return Transaction.success(mutableData);
-                                }
-
-                                @Override
-                                public void onComplete(@Nullable DatabaseError databaseError, boolean b, @Nullable DataSnapshot dataSnapshot) {
-
-                                }
-                            });
-
                             hideProgressDialog();
                             try {
                                 Toast.makeText(getApplicationContext(), getText(R.string.create_campaign_success), Toast.LENGTH_SHORT).show();

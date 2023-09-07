@@ -84,6 +84,10 @@ public class AppUtil {
         return TIKTOK_PREFIX_LINK + "user/video/" + videoId;
     }
 
+    public static String getVideoURL(String userName,String videoId) {
+        return TIKTOK_PREFIX_LINK + userName +  "/video/" + videoId;
+    }
+
     public static void getServerTime() {
         new Thread(new Runnable() {
             @Override

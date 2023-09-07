@@ -12,6 +12,7 @@ import com.google.api.services.youtube.YouTubeScopes;
 
 import java.util.Arrays;
 
+import tikfans.tikplus.model.CountToday;
 import tikfans.tikplus.util.AppUtil;
 import tikfans.tikplus.util.PreferenceUtil;
 
@@ -26,7 +27,9 @@ public class MyChannelApplication extends MultiDexApplication {
     }
     public static String myChanelId = "";
     public static boolean isVipAccount = false;
-
+    public static CountToday countToday;
+    public static CountToday savedCountToday;
+    public static CountToday countTodayIP;
 
     public void onCreate() {
         super.onCreate();

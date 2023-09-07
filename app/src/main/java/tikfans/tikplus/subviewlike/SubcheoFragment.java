@@ -1,17 +1,17 @@
 package tikfans.tikplus.subviewlike;
 
 import java.io.IOException;
-import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Random;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.regex.Pattern;
 
 import android.annotation.SuppressLint;
-import android.app.Activity;
 import android.app.Dialog;
 import android.app.ProgressDialog;
 import android.content.ActivityNotFoundException;
@@ -24,6 +24,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.os.Handler;
+import android.os.Looper;
 import android.provider.Settings;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -55,13 +56,11 @@ import com.google.api.client.http.HttpTransport;
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.services.youtube.YouTube;
-import com.google.api.services.youtube.model.ChannelListResponse;
 import com.google.api.services.youtube.model.SubscriptionListResponse;
-import com.google.api.services.youtube.model.Video;
 import com.google.api.services.youtube.model.VideoGetRatingResponse;
-import com.google.api.services.youtube.model.VideoListResponse;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.crashlytics.FirebaseCrashlytics;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -79,19 +78,15 @@ import com.unity3d.ads.UnityAds;
 import com.unity3d.ads.UnityAdsShowOptions;
 import com.unity3d.services.banners.BannerErrorInfo;
 import com.unity3d.services.banners.BannerView;
-import com.unity3d.services.banners.IUnityBannerListener;
 import com.unity3d.services.banners.UnityBannerSize;
-import com.unity3d.services.banners.UnityBanners;
 
-import tikfans.tikplus.ItemURLTiktok;
+import tikfans.tikplus.ManHinhDangNhapActivity;
 import tikfans.tikplus.MuaHangActivity;
 import tikfans.tikplus.MyChannelApplication;
 import tikfans.tikplus.R;
 import tikfans.tikplus.TiktokWebClient;
 import tikfans.tikplus.UnFollowUserActivity;
 import tikfans.tikplus.model.ItemVideo;
-import tikfans.tikplus.model.ResultUser;
-import tikfans.tikplus.model.ResultVideo;
 import tikfans.tikplus.model.UnFollowUSer;
 import tikfans.tikplus.util.AppUtil;
 import tikfans.tikplus.util.CircleTransform;
@@ -108,13 +103,17 @@ import tikfans.tikplus.service.DemNguocThoiGianServices;
 
 import static android.app.Activity.RESULT_OK;
 import static com.unity3d.scar.adapter.common.Utils.runOnUiThread;
+import static tikfans.tikplus.MyChannelApplication.countToday;
+import static tikfans.tikplus.MyChannelApplication.savedCountToday;
 import static tikfans.tikplus.util.AppUtil.SUB_CAMPAIGN_TYPE;
+import static tikfans.tikplus.util.AppUtil.convertStringToInteger;
 import static tikfans.tikplus.util.AppUtil.isAdminVer;
 import static tikfans.tikplus.util.FirebaseUtil.CAMPAIGN_LAST_CHANGE_TIME_STAMP;
 import static tikfans.tikplus.util.FirebaseUtil.getCurrentUserRef;
+import static tikfans.tikplus.util.FirebaseUtil.getSubCampaignsRef;
 
-import org.json.JSONArray;
 import org.json.JSONObject;
+import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
@@ -173,19 +172,17 @@ public class SubcheoFragment extends Fragment
     private String myUserName;
     private long mLastTimeQuery = 0;
     private boolean isGotAllSubscribedList = false;
-    private CountToday countToday;
     private ProgressDialog dummyCheckingSubscriberDialog;
     private Long mGotoYTTime = 0L;
 
     private View rootView;
-    private String unityGameID = "3737693";
+    private String unityGameID = "5252996";
     private boolean testMode = false;
     private String placementId = "rewardedVideo";
     private View bannerView;
     private int loadBannerViewTryCount = 0;
-    private boolean isNeedCheckFollowByAPI = false;
-    private boolean isCheckedFollowByWebviewOrAPI = false;
-    private boolean isCheckedFailByWebviewOrAPI = false;
+    private SQLiteDatabaseHandler db;
+    private ArrayList<ItemVideo> itemVideoArrayList = new ArrayList<>();
 
     @Override
     public void onInitializationComplete() {
@@ -240,6 +237,7 @@ public class SubcheoFragment extends Fragment
     };
 
     boolean isUnityAdsLoaded = false;
+
     public void DisplayRewardedAd() {
         if (isUnityAdsLoaded) {
             UnityAds.show(getActivity(), placementId, new UnityAdsShowOptions(), showListener);
@@ -336,13 +334,13 @@ public class SubcheoFragment extends Fragment
         mBtnReload = rootView.findViewById(R.id.btn_reload);
 
         //for checking follow by webview
-        mWebView = rootView.findViewById(R.id.webView);
-        mWebView.setVisibility(View.INVISIBLE);
-        tiktokWebClient = new TiktokWebClient(getContext(), mWebView);
         getUserInfoByWebView(false);
 
         mAdView = rootView.findViewById(R.id.adView);
         AdRequest adRequest = new AdRequest.Builder().build();
+
+        db = new SQLiteDatabaseHandler(getContext());
+        itemVideoArrayList = db.getAllItemVideo();
 
         //unity
 //        if (bannerView == null && !MyChannelApplication.isVipAccount) {
@@ -419,28 +417,51 @@ public class SubcheoFragment extends Fragment
     }
 
     private void getTodaySubCount() {
-        countToday = new CountToday();
-        FirebaseUtil.getSubscribedTodayRef().addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
-                if (dataSnapshot.exists()) {
-                    countToday = dataSnapshot.getValue(CountToday.class);
-                    Date date = SecureDate.getInstance().getDate();
-                    DateFormat df;
-                    df = new SimpleDateFormat(AppUtil.FORMAT_DATE);
-                    String today = df.format(date);
-                    if (!countToday.getToday().equals(today)) {
-                        countToday.setToday(today);
-                        countToday.setCount(0);
+        if (FirebaseUtil.getCountTodayRef() == null) {
+            return;
+        }
+        if (countToday == null) {
+            FirebaseUtil.getCountTodayRef().addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override
+                public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                    if (dataSnapshot.exists()) {
+                        countToday = dataSnapshot.getValue(CountToday.class);
+                        Log.d("khang", "subCheo countToday: " + countToday);
+                        if (SecureDate.getInstance().getDate().getTime() - (Long) countToday.getTime() > 20 * 60 * 60 * 1000) {
+                            countToday = new CountToday(0, 0, SecureDate.getInstance().getDate().getTime(), 0L);
+                            Log.d("khang", "refresh countToday: " + countToday);
+                        }
+                    } else {
+                        countToday = new CountToday(0, 0, 0L, 0L);
                     }
+//                    if (savedCountToday != null) {
+//                        Log.d("khang", "check savedCountToday: " + savedCountToday + " / countToday: " + countToday);
+//                        countToday.setLike(Math.max(countToday.like, savedCountToday.getLike()));
+//                        countToday.setSub(Math.max(countToday.getSub(), savedCountToday.getSub()));
+//                        Log.d("khang", "updated CountToday: " + countToday);
+//                        savedCountToday = null;
+//                    }
+                    Log.d("khang_check", "getTodaySubCount Done: " + countToday.toString());
+                    getAllSubscribedList();
                 }
-            }
 
-            @Override
-            public void onCancelled(@NonNull DatabaseError databaseError) {
-
-            }
-        });
+                @Override
+                public void onCancelled(@NonNull DatabaseError databaseError) {
+                    Log.d("khang_check", "getTodaySubCount error: " + databaseError.getDetails());
+                    countToday = new CountToday(0, 0, 0L, 0L);
+//                    if (savedCountToday != null) {
+//                        Log.d("khang", "check savedCountToday: " + savedCountToday + " / countToday: " + countToday);
+//                        countToday.setLike(Math.max(countToday.like, savedCountToday.getLike()));
+//                        countToday.setSub(Math.max(countToday.getSub(), savedCountToday.getSub()));
+//                        Log.d("khang", "updated CountToday: " + countToday);
+//                        savedCountToday = null;
+//                    }
+                    getAllSubscribedList();
+                }
+            });
+        } else {
+            getAllSubscribedList();
+        }
     }
 
     @Override
@@ -448,168 +469,12 @@ public class SubcheoFragment extends Fragment
         super.onActivityCreated(savedInstanceState);
     }
 
-    private void getUserInfobyAPI() {
-        String username = PreferenceUtil.getStringPref(PreferenceUtil.TIKTOK_USER_NAME, "");
-        String userImg = PreferenceUtil.getStringPref(PreferenceUtil.TIKTOK_USER_PHOTO, "NONE");
-        String link = AppUtil.TIKTOK_PREFIX_LINK + username;
-        ItemURLTiktok url = new ItemURLTiktok(link, listenerForLoggedInUser);
-        url.getUserInfo();
-    }
-
-    ItemURLTiktok.ClientTikTokListener listenerForLoggedInUser = new ItemURLTiktok.ClientTikTokListener() {
-        @Override
-        public void onLoading() {
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        if (checkingFollowDialog != null && !checkingFollowDialog.isShowing()) {
-                            checkingFollowDialog.show();
-                        }
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                }
-            });
-        }
-
-        @Override
-        public void onReceivedListVideo(ResultVideo result) {
-        }
-
-        @Override
-        public void onReceivedUserInfo(final ResultUser result) {
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    if (checkingFollowDialog != null && checkingFollowDialog.isShowing()) {
-                        checkingFollowDialog.dismiss();
-                    }
-                    if (result != null && result.getResult() != null && result.getResult().getFollowing() != null) {
-                        String img = "";
-                        if (result.getResult() != null && result.getResult().getCovers() != null) {
-                            img = result.getResult().getCovers().get(0);
-                        }
-                        if (img.equals("") && result.getResult() != null && result.getResult().getCoversMedium() != null) {
-                            img = result.getResult().getCoversMedium().get(0);
-                        }
-                        if (!img.equals("")) {
-                            PreferenceUtil.saveStringPref(PreferenceUtil.TIKTOK_USER_PHOTO, img);
-                        }
-                        int followingInt = result.getResult().getFollowing();
-                        checkUnfollow();
-                        Log.d("khangcheckfollow", "get userinfo by api: " + followingInt);
-                        if (followingInt > 10000) {//dang follow qua nhieu tai khoan
-                            mSubCampaign = null;
-                            mNoPageLayout.setVisibility(View.VISIBLE);
-                            mPageContentLayout.setVisibility(View.INVISIBLE);
-                            mTxtChannel.setText(getString(R.string.subscribe_limitation));
-                            mBtnReload.setVisibility(View.GONE);
-                            mTxtChannelExtra.setText(getString(R.string.subscribe_limitation_extra));
-                        }
-
-                        if (isNeedCheckFollowByAPI) {
-                            myFollowingByApi = followingInt;
-                            checkFollowByAPI();
-                            myOldFollowingbyAPI = followingInt;
-                        } else {
-                            myOldFollowingbyAPI = followingInt;
-                            myFollowingByApi = followingInt;
-                        }
-                    }
-                }
-            });
-        }
-
-        @Override
-        public void onError(int code, String mess) {
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    Log.d("khangcheckfollow", "get userinfo by api error: " + mess);
-                    if (checkingFollowDialog != null && checkingFollowDialog.isShowing()) {
-                        checkingFollowDialog.dismiss();
-                    }
-                    if (isCheckedFailByWebviewOrAPI) {
-                        if (isNeedCheckFollowByAPI) {
-                            myFollowingByApi = -1; // bang 0 mac dich la da tha tim
-                            checkFollowByAPI();
-                        }
-                    } else {
-                        isCheckedFailByWebviewOrAPI = true;
-                    }
-                }
-            });
-        }
-
-        @Override
-        public void onInvalidLink() {
-        }
-
-        @Override
-        public void onCheckLinkDone() {
-        }
-    };
-
-    private void checkFollowByAPI() {
-        if (isCheckedFollowByWebviewOrAPI) {
-            Log.d("khangcheckfollow", "khong check follow by api vi da check xong bang webview");
-            return;
-        }
-        isCheckedFollowByWebviewOrAPI = true;
-        Log.d("khangcheckfollow", "checkfollowByAPI: old: " + myOldFollowingbyAPI + " new: " + myFollowingByApi);
-        if (myOldFollowingbyAPI > 10000) {//dang follow qua nhieu tai khoan
-            mSubCampaign = null;
-            mNoPageLayout.setVisibility(View.VISIBLE);
-            mPageContentLayout.setVisibility(View.INVISIBLE);
-            mTxtChannel.setText(getString(R.string.subscribe_limitation));
-            mBtnReload.setVisibility(View.GONE);
-            mTxtChannelExtra.setText(getString(R.string.subscribe_limitation_extra));
-        } else {
-            if (myFollowingByApi > myOldFollowingbyAPI || myFollowingByApi == -1) {// da follow
-                ratingResultSubscribed();
-            } else {// chua follow
-                PreferenceUtil.saveBooleanPref(PreferenceUtil.FORCE_CHECK_SUB, true);
-                String title, message, positiveButton;
-                title = getString(R.string.chua_dang_ky);
-                message = String.format(getString(R.string.chua_dang_ky_chi_tiet), myUserName);
-                positiveButton = getString(R.string.dang_ky_lai);
-
-                try {
-                    AlertDialog alertDialog = new AlertDialog.Builder(mContext)
-                            .setTitle(title)
-                            .setMessage(message)
-                            .setPositiveButton(positiveButton, new DialogInterface.OnClickListener() {
-                                @Override
-                                public void onClick(DialogInterface dialog, int which) {
-                                    isWaitingForSub = true;
-                                    subscribeButtonOnclick();
-                                }
-                            }).setNegativeButton(getString(R.string.xem_cai_khac), new DialogInterface.OnClickListener() {
-                                @Override
-                                public void onClick(DialogInterface dialog, int which) {
-                                    queryDatabase();
-                                    dialog.dismiss();
-                                }
-                            })
-                            .create();
-                    alertDialog.setCancelable(false);
-                    alertDialog.show();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-        }
-    }
 
     // for checking follow
-    private WebView mWebView;
-    private TiktokWebClient tiktokWebClient;
     private int myFollowingByWebView = -1;
     private int myOldFollowingByWebView = -1;
     private int myFollowingByApi = -1;
     private int myOldFollowingbyAPI = -1;
-    private String mUserLink;
 
     private void getUserInfoToUpdateCampaignByWebView(String mUserName) {
         if (isGettingUserInfoByWebView) return;
@@ -620,97 +485,70 @@ public class SubcheoFragment extends Fragment
             e.printStackTrace();
         }
         String userLink = AppUtil.TIKTOK_PREFIX_LINK + mUserName;
-        ItemURLTiktok url = new ItemURLTiktok(userLink, null);
-        if (url.getTYPE_URL() == ItemURLTiktok.URL_TYPE_USER) {
-            Log.e("khangcheckfollow", "getUserInfoByWebView: user link " + url.getBaseUrl());
-            tiktokWebClient.load(url.getBaseUrl());
-            tiktokWebClient.setListener(new TiktokWebClient.ClientListener() {
-                @Override
-                public void onLoading() {
-                    Log.e("khang", "onLoading: ");
-                    try {
-                        hideProgressDialog();
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
+        Log.e("khangcheckfollow", "getUserInfoByWebView: user link " + userLink);
+        //newGetData
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        Handler handler = new Handler(Looper.getMainLooper());
+
+        executor.execute(new Runnable() {
+            @Override
+            public void run() {
+
+                //Background work here
+                Document document = null;
+                try {
+                    document = Jsoup.connect(userLink).get();
+                } catch (IOException e) {
+                    e.printStackTrace();
                 }
-
-                @Override
-                public void onLoadFinish(Document document, String url) {
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            try {
-                                hideProgressDialog();
-                                if (isLoaded[0]) return;
-                                isLoaded[0] = true;
-                                Log.e("khang", "getUserInfoByWebView onLoadFinish: " + url);
-                                String imageUrl = "";
-                                Elements findImgUrlElementList = document.getElementsByTag("meta");
-                                for (Element e:findImgUrlElementList) {
-                                    String content = e.attributes().get("content");
-                                    if (content.contains("expires=")) {
-                                        imageUrl = content;
-                                    }
-                                    if (content.contains("/video/")) {
-                                        break;
-                                    }
+                Document finalDocument1 = document;
+                handler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            hideProgressDialog();
+                            String imageUrl = "";
+                            Elements findImgUrlElementList = finalDocument1.getElementsByTag("meta");
+                            for (Element e : findImgUrlElementList) {
+                                String content = e.attributes().get("content");
+                                if (content.contains("expires=")) {
+                                    imageUrl = content;
                                 }
-
-                                Log.e("khang", "onLoadFinish: Avatar Url: " + imageUrl);
-                                if (!imageUrl.equals("")) {
-                                    Log.d("khang", "onReceivedUserInfo img: " + imageUrl);
-                                    if (mSubCampaign != null && mSubCampaign.getKey() != null && mSubCampaign.getKey().equals(mCheckingImgbyKey)) {
-                                        Picasso.get().load(imageUrl).transform(new CircleTransform())
-                                                .into(mUserImg);
-                                        final DatabaseReference campaignCurrentRef = FirebaseUtil.getSubCampaignsRef().child(mSubCampaign.getKey());
-                                        String finalImg = imageUrl;
-                                        campaignCurrentRef.runTransaction(new Transaction.Handler() {
-                                            @NonNull
-                                            @Override
-                                            public Transaction.Result doTransaction(@NonNull MutableData mutableData) {
-                                                SubCampaign currentCampaign = mutableData.getValue(SubCampaign.class);
-                                                if (currentCampaign == null) {
-                                                    return Transaction.success(mutableData);
-                                                    //                    subCoin = 0;
-                                                }
-
-                                                currentCampaign.setUserImg(finalImg);
-
-                                                // Set value and report transaction success
-                                                mutableData.setValue(currentCampaign);
-                                                return Transaction.success(mutableData);
-                                            }
-
-                                            @Override
-                                            public void onComplete(@Nullable DatabaseError databaseError, boolean b, @Nullable DataSnapshot dataSnapshot) {
-
-                                            }
-                                        });
-                                    } else {
-                                        Log.d("khang", "onReceivedUserInfo img: do not match with current campaign" + imageUrl);
-                                    }
-
+                                if (content.contains("/video/")) {
+                                    break;
                                 }
-
-                                mWebView.setVisibility(View.INVISIBLE);
-                            } catch (Exception e) {
-                                Log.e("khang", e.toString());
                             }
 
+                            Log.e("khang", "onLoadFinish: Avatar Url: " + imageUrl);
+                            if (!imageUrl.equals("")) {
+                                Log.d("khang", "onReceivedUserInfo img: " + imageUrl);
+                                if (mSubCampaign != null && mSubCampaign.getKey() != null && mSubCampaign.getKey().equals(mCheckingImgbyKey)) {
+                                    Picasso.get().load(imageUrl).transform(new CircleTransform())
+                                            .into(mUserImg);
+                                    final DatabaseReference campaignUserImgRef = getSubCampaignsRef().child(mSubCampaign.getKey()).child("userImg");
+                                    campaignUserImgRef.setValue(imageUrl);
+                                } else {
+                                    Log.d("khang", "onReceivedUserInfo img: do not match with current campaign" + imageUrl);
+                                }
+
+                            }
+
+                        } catch (Exception e) {
+                            Log.e("khang", e.toString());
                         }
-                    });
-                }
-            });
-        }
+                    }
+                });
+            }
+        });
     }
 
     boolean isGettingUserInfoByWebView = false;
 
+    private int getDataFailedCount = 0;
     private void getUserInfoByWebView(boolean isNeedCheckFollow) {
         final boolean[] isLoaded = {false}; // haom onloadFinish bi goi 2 lan, chi xu ly o lan goi dau tien
         try {
-            if (checkingFollowDialog != null && !checkingFollowDialog.isShowing()) {
+            if (checkingFollowDialog != null && !checkingFollowDialog.isShowing() && isNeedCheckFollow) {
                 checkingFollowDialog.show();
             }
         } catch (Exception e) {
@@ -718,117 +556,336 @@ public class SubcheoFragment extends Fragment
         }
         String mUserName = PreferenceUtil.getStringPref(PreferenceUtil.TIKTOK_USER_NAME, "NONE");
         String userLink = AppUtil.TIKTOK_PREFIX_LINK + mUserName;
-        ItemURLTiktok url = new ItemURLTiktok(userLink, null);
-        if (url.getTYPE_URL() == ItemURLTiktok.URL_TYPE_USER) {
-            Log.e("khangcheckfollow", "getUserInfoByWebView: user link " + url.getBaseUrl());
-            tiktokWebClient.load(url.getBaseUrl());
-            tiktokWebClient.setListener(new TiktokWebClient.ClientListener() {
-                @Override
-                public void onLoading() {
-                    isGettingUserInfoByWebView = true;
-                    Log.e("khang", "onLoading: ");
-                    try {
-                        if (checkingFollowDialog != null) {
-                            if (isNeedCheckFollow) {
-                                checkingFollowDialog.setCancelable(false);
-                                checkingFollowDialog.setTitle(getString(R.string.subscribe_to_channel));
-                                checkingFollowDialog.setMessage(getString(R.string.subscribe_to_channel_message));
-                            } else {
-                                checkingFollowDialog.setCancelable(true);
-                                checkingFollowDialog.setTitle("");
-                                checkingFollowDialog.setMessage("");
+        //newGetData
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        long beginTime = System.currentTimeMillis();
+        Handler handler = new Handler(Looper.getMainLooper());
+
+        executor.execute(new Runnable() {
+            @Override
+            public void run() {
+
+                //Background work here
+                Document document = null;
+                try {
+                    document = Jsoup.connect(userLink).get();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                Document finalDocument1 = document;
+                handler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            if (checkingFollowDialog != null && checkingFollowDialog.isShowing()) {
+                                checkingFollowDialog.dismiss();
                             }
-                            if (checkingFollowDialog != null && !checkingFollowDialog.isShowing()) {
-                                checkingFollowDialog.show();
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+
+                        int followingInt = -1;
+
+                        //get user follow count
+                        try {
+                            JSONObject user;
+                            String userName;
+                            user = new JSONObject(finalDocument1.getElementById("SIGI_STATE").data()).getJSONObject("UserModule").getJSONObject("stats");
+                            userName = user.names().getString(0);
+                            followingInt = user.getJSONObject(userName).getInt("followingCount");
+                            Log.e("khangcheckfollow", "getUserInfoByWebView case1: " + userName + " following: " + followingInt);
+
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                            FirebaseCrashlytics.getInstance().recordException(e);
+                            try {
+                                Element userFollowing = finalDocument1.getElementsByClass("tiktok-19hl5wo-StrongNumber e1s627be5").get(0);
+                                String following = userFollowing.text();
+                                followingInt = AppUtil.convertStringToInteger(following);
+                                Log.e("khangcheckfollow", "getUserInfoByWebView case2: " + " following: " + followingInt);
+
+                            } catch (Exception e2) {
+                                FirebaseCrashlytics.getInstance().recordException(e);
+                                e2.printStackTrace();
+                                Log.e("khangcheckfollow", "getUserInfoByWebView failed followingInt: " + followingInt);
+
                             }
                         }
-                    } catch (Exception e) {
-                        e.printStackTrace();
+                        if (followingInt == -1 && getDataFailedCount < 3) {
+                            getDataFailedCount++;
+                            getUserInfoByWebView(isNeedCheckFollow);
+                            return;
+                        }
+                        getDataFailedCount = 0;
+
+                        //get list video of user
+                        if (!isNeedCheckFollow) {
+                            String avatarUrl = "";
+                            //get profile image
+                            try {
+                                avatarUrl = finalDocument1.getElementsByClass("tiktok-1zpj2q-ImgAvatar").get(0).attributes().get("src");
+                                if (avatarUrl != null && !avatarUrl.equals("")) {
+                                    PreferenceUtil.saveStringPref(PreferenceUtil.TIKTOK_USER_PHOTO, avatarUrl);
+                                    DatabaseReference userPhotoRef = FirebaseUtil.getCurrentUserRef().child("photo");
+                                    userPhotoRef.setValue(avatarUrl);
+                                }
+                                Log.d("Khang", "get user image: : " + avatarUrl);
+                            } catch (Exception e) {
+                                FirebaseCrashlytics.getInstance().recordException(e);
+                                e.printStackTrace();
+                                Log.d("khang", "get user image error: " + e.toString());
+                            }
+
+                            //get all video list
+                            try {
+                                final String regex = "(?:\\(['\"]?)(.*?)(?:['\"]?\\))"; //lấy link ảnh từ background url
+                                final Pattern pattern = Pattern.compile(regex);
+                                Elements listVideoElement = finalDocument1.getElementsByAttributeValueContaining("data-e2e", "video-item");
+                                ArrayList<ItemVideo> tmpList = new ArrayList<>();
+                                if (listVideoElement.size() > 0) {
+                                    Log.e("khang", "onLoadFinish: video List size: " + listVideoElement.size());
+
+                                    for (Element videoElement : listVideoElement) {
+                                        try {
+                                            ItemVideo item = new ItemVideo();
+                                            Elements video = videoElement.getElementsByAttributeValueContaining("href", "video");
+                                            String videoUrl = video.get(0).attributes().get("href");
+                                            String[] splitUrl = videoUrl.split("/");
+                                            String id = splitUrl[splitUrl.length - 1];
+                                            item.setId(id);
+                                            item.setWebVideoUrl(videoUrl);
+                                            try {
+                                                item.setImageUrl(video.get(0).getElementsByTag("img").get(0).attributes().get("src"));
+                                            } catch (Exception e) {
+                                                e.printStackTrace();
+                                            }
+                                            Elements playCountE = video.get(0).getElementsByClass("tiktok-1g6bqj2-SpanPlayCount");
+                                            if (playCountE.size() > 0) {
+                                                String playCount = playCountE.get(0).text();
+                                                item.setDiggCount(convertStringToInteger(playCount));
+                                            }
+                                            tmpList.add(item);
+                                        } catch (Exception e) {
+                                            e.printStackTrace();
+                                        }
+
+                                    }
+                                    if (tmpList.size() > 0) {
+                                        itemVideoArrayList = tmpList;
+                                    }
+                                    if (itemVideoArrayList.size() > 0) {
+                                        PreferenceUtil.saveBooleanPref(PreferenceUtil.IS_LIST_VIDEO_FROM_CURRENT_USER, true);
+                                        PreferenceUtil.saveStringPref(PreferenceUtil.TIKTOK_USER_PHOTO_FOR_CAMPAIGN, avatarUrl);
+                                        PreferenceUtil.saveStringPref(PreferenceUtil.TIKTOK_USER_NAME_FOR_CAMPAIGN, mUserName);
+                                        db.removeAll();
+                                        for (int i = 0; i < itemVideoArrayList.size(); i++) {
+                                            ItemVideo itemVideo = itemVideoArrayList.get(i);
+                                            db.addItemVideo(itemVideo);
+                                        }
+                                    }
+                                }
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                                FirebaseCrashlytics.getInstance().recordException(e);
+                            }
+                        }
+
+                        checkUnfollow();
+                        if (followingInt > 10000) {//dang follow qua nhieu tai khoan
+                            mSubCampaign = null;
+                            mNoPageLayout.setVisibility(View.VISIBLE);
+                            mPageContentLayout.setVisibility(View.INVISIBLE);
+                            mTxtChannel.setText(getString(R.string.subscribe_limitation));
+                            mBtnReload.setVisibility(View.GONE);
+                            mTxtChannelExtra.setText(getString(R.string.subscribe_limitation_extra));
+                        }
+
+                        if (isNeedCheckFollow) {
+                            myFollowingByWebView = followingInt;
+                            checkFollow();
+                            myOldFollowingByWebView = followingInt;
+                        } else {
+                            myOldFollowingByWebView = followingInt;
+                            myFollowingByWebView = followingInt;
+                        }
+                        isGettingUserInfoByWebView = false;
+                        //UI Thread work here
+                        Log.d("khang", "loadingTime: " + (System.currentTimeMillis() - beginTime));
                     }
-                }
+                });
+            }
+        });
 
-                @Override
-                public void onLoadFinish(Document document, String url) {
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            try {
-                                if (checkingFollowDialog != null && checkingFollowDialog.isShowing()) {
-                                    checkingFollowDialog.dismiss();
-                                }
-                            } catch (Exception e) {
-                                e.printStackTrace();
-                            }
-                            if (isLoaded[0]) return;
-                            isLoaded[0] = true;
-//                    if (true) {
-                            if (url.contains("notfound") && isCheckedFailByWebviewOrAPI) { //block ip from india so url is notfound
-                                Log.d("khangcheckfollow", "webview: load faild caused by block ip");
-                                if (isNeedCheckFollow) {
-                                    myFollowingByWebView = -1; // bang 0 mac dich la da tha tim
-                                    checkFollow();
-                                }
-                                return;
-                            } else {
-                                isCheckedFailByWebviewOrAPI = true;
-                            }
-                            Log.e("khangcheckfollow", "getUserInfoByWebView onLoadFinish: " + url);
-                            int followingInt = -1;
-                            try {
-                                JSONObject user;
-                                String userName;
-                                user = new JSONObject(document.getElementById("SIGI_STATE").data()).getJSONObject("MobileUserModule").getJSONObject("stats");
-                                userName = user.names().getString(0);
-                                followingInt = user.getJSONObject(userName).getInt("followingCount");
-                                Log.e("khangcheckfollow", "getUserInfoByWebView case1: " + userName + " following: " + followingInt);
-                            } catch (Exception e) {
-                                e.printStackTrace();
-                                try {
-                                    Element userFollowing = document.getElementsByClass("tiktok-19hl5wo-StrongNumber e1s627be5").get(0);
-                                    String following = userFollowing.text();
-                                    followingInt = AppUtil.convertStringToInteger(following);
-                                    Log.e("khangcheckfollow", "getUserInfoByWebView case2: " + " following: " + followingInt);
 
-                                } catch (Exception e2) {
-                                    e2.printStackTrace();
-                                    Log.e("khangcheckfollow", "getUserInfoByWebView failed followingInt: " + followingInt);
-
-                                }
-                            }
-                            checkUnfollow();
-                            if (followingInt > 10000) {//dang follow qua nhieu tai khoan
-                                mSubCampaign = null;
-                                mNoPageLayout.setVisibility(View.VISIBLE);
-                                mPageContentLayout.setVisibility(View.INVISIBLE);
-                                mTxtChannel.setText(getString(R.string.subscribe_limitation));
-                                mBtnReload.setVisibility(View.GONE);
-                                mTxtChannelExtra.setText(getString(R.string.subscribe_limitation_extra));
-                            }
-
-                            if (isNeedCheckFollow) {
-                                myFollowingByWebView = followingInt;
-                                checkFollow();
-                                myOldFollowingByWebView = followingInt;
-                            } else {
-                                myOldFollowingByWebView = followingInt;
-                                myFollowingByWebView = followingInt;
-                            }
-                            mWebView.setVisibility(View.INVISIBLE);
-                            isGettingUserInfoByWebView = false;
-                        }
-                    });
-
-                }
-            });
-        }
+//        Log.e("khangcheckfollow", "getUserInfoByWebView: user link " + userLink);
+//        mWebView.stopLoading();
+//        tiktokWebClient = new TiktokWebClient(getContext(), mWebView);
+//        tiktokWebClient.load(userLink);
+//        tiktokWebClient.setListener(new TiktokWebClient.ClientListener() {
+//            @Override
+//            public void onLoading() {
+//                isGettingUserInfoByWebView = true;
+//                Log.e("khang", "onLoading: ");
+//                try {
+//                    if (checkingFollowDialog != null) {
+//                        if (isNeedCheckFollow) {
+//                            checkingFollowDialog.setCancelable(false);
+//                            checkingFollowDialog.setTitle(getString(R.string.subscribe_to_channel));
+//                            checkingFollowDialog.setMessage(getString(R.string.subscribe_to_channel_message));
+//                            if (checkingFollowDialog != null && !checkingFollowDialog.isShowing()) {
+//                                checkingFollowDialog.show();
+//                            }
+//                        }
+//                    }
+//                } catch (Exception e) {
+//                    e.printStackTrace();
+//                }
+//            }
+//
+//            @Override
+//            public void onLoadFinish(Document document, String url) {
+//                runOnUiThread(new Runnable() {
+//                    @Override
+//                    public void run() {
+//                        try {
+//                            if (checkingFollowDialog != null && checkingFollowDialog.isShowing()) {
+//                                checkingFollowDialog.dismiss();
+//                            }
+//                        } catch (Exception e) {
+//                            e.printStackTrace();
+//                        }
+//                        if (isLoaded[0]) return;
+//                        isLoaded[0] = true;
+////                    if (true) {
+//                        if (url.contains("notfound")) { //block ip from india so url is notfound
+//                            Log.d("khangcheckfollow", "webview: load faild caused by block ip");
+//                            if (isNeedCheckFollow) {
+//                                myFollowingByWebView = -1; // bang 0 mac dich la da tha tim
+//                                checkFollow();
+//                            }
+//                            return;
+//                        }
+//                        Log.e("khangcheckfollow", "getUserInfoByWebView onLoadFinish: " + url);
+//                        int followingInt = -1;
+//
+//                        //get user follow count
+//                        try {
+//                            JSONObject user;
+//                            String userName;
+//                            user = new JSONObject(document.getElementById("SIGI_STATE").data()).getJSONObject("MobileUserModule").getJSONObject("stats");
+//                            userName = user.names().getString(0);
+//                            followingInt = user.getJSONObject(userName).getInt("followingCount");
+//                            Log.e("khangcheckfollow", "getUserInfoByWebView case1: " + userName + " following: " + followingInt);
+//
+//                        } catch (Exception e) {
+//                            e.printStackTrace();
+//                            try {
+//                                Element userFollowing = document.getElementsByClass("tiktok-19hl5wo-StrongNumber e1s627be5").get(0);
+//                                String following = userFollowing.text();
+//                                followingInt = AppUtil.convertStringToInteger(following);
+//                                Log.e("khangcheckfollow", "getUserInfoByWebView case2: " + " following: " + followingInt);
+//
+//                            } catch (Exception e2) {
+//                                e2.printStackTrace();
+//                                Log.e("khangcheckfollow", "getUserInfoByWebView failed followingInt: " + followingInt);
+//
+//                            }
+//                        }
+//
+//                        //get list video of user
+//                        if (!isNeedCheckFollow) {
+//                            String avatarUrl = "";
+//                            //get profile image
+//                            try {
+//                                avatarUrl = document.getElementsByClass("tiktok-1zpj2q-ImgAvatar").get(0).attributes().get("src");
+//                                if (avatarUrl != null && !avatarUrl.equals("")) {
+//                                    PreferenceUtil.saveStringPref(PreferenceUtil.TIKTOK_USER_PHOTO, avatarUrl);
+//                                    DatabaseReference userPhotoRef = FirebaseUtil.getCurrentUserRef().child("photo");
+//                                    userPhotoRef.setValue(avatarUrl);
+//                                }
+//                                Log.d("Khang", "get user image: : " + avatarUrl);
+//                            } catch (Exception e) {
+//                                e.printStackTrace();
+//                                Log.d("khang", "get user image error: " + e.toString());
+//                            }
+//
+//                            //get all video list
+//                            final String regex = "(?:\\(['\"]?)(.*?)(?:['\"]?\\))"; //lấy link ảnh từ background url
+//                            final Pattern pattern = Pattern.compile(regex);
+//                            Elements listVideoElement = document.getElementsByAttributeValueContaining("data-e2e", "video-item");
+//                            ArrayList<ItemVideo> tmpList = new ArrayList<>();
+//                            if (listVideoElement.size() > 0) {
+//                                Log.e("khang", "onLoadFinish: video List size: " + listVideoElement.size());
+//
+//                                for (Element videoElement : listVideoElement) {
+//                                    try {
+//                                        ItemVideo item = new ItemVideo();
+//                                        Elements video = videoElement.getElementsByAttributeValueContaining("href", "video");
+//                                        String videoUrl = video.get(0).attributes().get("href");
+//                                        String[] splitUrl = videoUrl.split("/");
+//                                        String id = splitUrl[splitUrl.length - 1];
+//                                        item.setId(id);
+//                                        item.setWebVideoUrl(videoUrl);
+//                                        try {
+//                                            item.setImageUrl(video.get(0).getElementsByTag("img").get(0).attributes().get("src"));
+//                                        } catch (Exception e) {
+//                                            e.printStackTrace();
+//                                        }
+//                                        Elements playCountE = video.get(0).getElementsByClass("tiktok-1g6bqj2-SpanPlayCount");
+//                                        if (playCountE.size() > 0) {
+//                                            String playCount = playCountE.get(0).text();
+//                                            item.setDiggCount(convertStringToInteger(playCount));
+//                                        }
+//                                        tmpList.add(item);
+//                                    } catch (Exception e) {
+//                                        e.printStackTrace();
+//                                    }
+//
+//                                }
+//                                if (tmpList.size() > 0) {
+//                                    itemVideoArrayList = tmpList;
+//                                }
+//                                if (itemVideoArrayList.size() > 0) {
+//                                    PreferenceUtil.saveBooleanPref(PreferenceUtil.IS_LIST_VIDEO_FROM_CURRENT_USER, true);
+//                                    PreferenceUtil.saveStringPref(PreferenceUtil.TIKTOK_USER_PHOTO_FOR_CAMPAIGN, avatarUrl);
+//                                    PreferenceUtil.saveStringPref(PreferenceUtil.TIKTOK_USER_NAME_FOR_CAMPAIGN, mUserName);
+//                                    db.removeAll();
+//                                    for (int i = 0; i < itemVideoArrayList.size(); i++) {
+//                                        ItemVideo itemVideo = itemVideoArrayList.get(i);
+//                                        db.addItemVideo(itemVideo);
+//                                    }
+//                                }
+//                            }
+//                        }
+//
+//                        checkUnfollow();
+//                        if (followingInt > 10000) {//dang follow qua nhieu tai khoan
+//                            mSubCampaign = null;
+//                            mNoPageLayout.setVisibility(View.VISIBLE);
+//                            mPageContentLayout.setVisibility(View.INVISIBLE);
+//                            mTxtChannel.setText(getString(R.string.subscribe_limitation));
+//                            mBtnReload.setVisibility(View.GONE);
+//                            mTxtChannelExtra.setText(getString(R.string.subscribe_limitation_extra));
+//                        }
+//
+//                        if (isNeedCheckFollow) {
+//                            myFollowingByWebView = followingInt;
+//                            checkFollow();
+//                            myOldFollowingByWebView = followingInt;
+//                        } else {
+//                            myOldFollowingByWebView = followingInt;
+//                            myFollowingByWebView = followingInt;
+//                        }
+//                        mWebView.setVisibility(View.INVISIBLE);
+//                        isGettingUserInfoByWebView = false;
+//                    }
+//                });
+//
+//            }
+//        });
     }
 
     private void checkFollow() {
-        if (isCheckedFollowByWebviewOrAPI) {
-            Log.d("khangcheckfollow", "khong check follow by webview vi da check xong bang api");
-            return;
-        }
-        isCheckedFollowByWebviewOrAPI = true;
         Log.d("khangcheckfollow", "checkfollowByWebView: old: " + myOldFollowingByWebView + " new: " + myFollowingByWebView);
         if (myOldFollowingByWebView > 10000) {//dang follow qua nhieu tai khoan
             mSubCampaign = null;
@@ -838,16 +895,17 @@ public class SubcheoFragment extends Fragment
             mBtnReload.setVisibility(View.GONE);
             mTxtChannelExtra.setText(getString(R.string.subscribe_limitation_extra));
         } else {
-            if (myFollowingByWebView > myOldFollowingByWebView || myFollowingByWebView == -1) {// da follow
+            if (myFollowingByWebView > myOldFollowingByWebView || myFollowingByWebView == -1 || (mSubCampaign != null && mSubCampaign.getUserName() != null && mSubCampaign.getUserName().equals("luuvankhang"))) {// da follow
                 ratingResultSubscribed();
             } else {// chua follow
                 PreferenceUtil.saveBooleanPref(PreferenceUtil.FORCE_CHECK_SUB, true);
                 String title, message, positiveButton;
-                title = getString(R.string.chua_dang_ky);
-                message = String.format(getString(R.string.chua_dang_ky_chi_tiet), myUserName);
-                positiveButton = getString(R.string.dang_ky_lai);
 
                 try {
+                    title = getString(R.string.chua_dang_ky);
+                    message = String.format(getString(R.string.chua_dang_ky_chi_tiet), myUserName);
+                    positiveButton = getString(R.string.dang_ky_lai);
+
                     AlertDialog alertDialog = new AlertDialog.Builder(mContext)
                             .setTitle(title)
                             .setMessage(message)
@@ -860,8 +918,8 @@ public class SubcheoFragment extends Fragment
                             }).setNegativeButton(getString(R.string.xem_cai_khac), new DialogInterface.OnClickListener() {
                                 @Override
                                 public void onClick(DialogInterface dialog, int which) {
-                                    Log.d("khang", "currentTime: " + SecureDate.getInstance().getDate().getTime() + " / " + (long) mSubCampaign.getCreTime() + " dif: " + (SecureDate.getInstance().getDate().getTime() - (long) mSubCampaign.getCreTime()));
-                                    if (SecureDate.getInstance().getDate().getTime() - (long) mSubCampaign.getCreTime() > (long) 15 * 24 * 60 * 60 * 1000) {
+                                    if (mSubCampaign != null && SecureDate.getInstance().getDate().getTime() - (long) mSubCampaign.getCreTime() > (long) 15 * 24 * 60 * 60 * 1000) {
+                                        Log.d("khang", "currentTime: " + SecureDate.getInstance().getDate().getTime() + " / " + (long) mSubCampaign.getCreTime() + " dif: " + (SecureDate.getInstance().getDate().getTime() - (long) mSubCampaign.getCreTime()));
                                         skipNotFoundCampaign(mSubCampaign);
                                     }
                                     queryDatabase();
@@ -910,11 +968,15 @@ public class SubcheoFragment extends Fragment
                             }).setNegativeButton(getString(R.string.kenh_khong_tim_thay), new DialogInterface.OnClickListener() {
                                 @Override
                                 public void onClick(DialogInterface dialog, int which) {
-                                    dialog.dismiss();
-                                    if (SecureDate.getInstance().getDate().getTime() - (long) mSubCampaign.getCreTime() > (long) 15 * 24 * 60 * 60 * 1000) {
-                                        skipNotFoundCampaign(mSubCampaign);
+                                    try {
+                                        dialog.dismiss();
+                                        if (SecureDate.getInstance().getDate().getTime() - (long) mSubCampaign.getCreTime() > (long) 15 * 24 * 60 * 60 * 1000) {
+                                            skipNotFoundCampaign(mSubCampaign);
+                                        }
+                                        queryDatabase();
+                                    } catch (Exception e) {
+                                        e.printStackTrace();
                                     }
-                                    queryDatabase();
                                 }
                             })
                             .create();
@@ -923,10 +985,6 @@ public class SubcheoFragment extends Fragment
                     e.printStackTrace();
                 }
             } else {
-                isCheckedFollowByWebviewOrAPI = false;
-                isCheckedFailByWebviewOrAPI = false;
-                isNeedCheckFollowByAPI = true;
-                //getUserInfobyAPI();
                 getUserInfoByWebView(true);
             }
         }
@@ -940,7 +998,7 @@ public class SubcheoFragment extends Fragment
     private void skipNotFoundCampaign(SubCampaign subCampaign) {
         Log.d("khang", "khong tim thay kenh");
         //to campaign
-        DatabaseReference currentCampaignRef = FirebaseUtil.getSubCampaignsRef().child(subCampaign.getKey());
+        DatabaseReference currentCampaignRef = getSubCampaignsRef().child(subCampaign.getKey());
         currentCampaignRef.runTransaction(new Transaction.Handler() {
             @Override
             public Transaction.Result doTransaction(MutableData mutableData) {
@@ -1228,7 +1286,7 @@ public class SubcheoFragment extends Fragment
                 if (MyChannelApplication.isVipAccount) {
                     limitSub = limitSub + 10;
                 }
-                if (countToday != null && countToday.getCount() <= limitSub) {
+                if (countToday != null && countToday.getSub() <= limitSub) {
                     queryDatabase();
                 } else {
                     Intent buyIntent = new Intent(getActivity(), MuaHangActivity.class);
@@ -1289,8 +1347,8 @@ public class SubcheoFragment extends Fragment
                 } catch (ActivityNotFoundException e3) {
                     try {
                         new AlertDialog.Builder(mContext)
-                                .setTitle("Can not find Tiktok app")
-                                .setMessage("Please install Tiktok app on your phone")
+                                .setTitle("Can not find TT app")
+                                .setMessage("Please install TT app on your phone")
 
                                 // Specifying a listener allows you to take an action before dismissing the dialog.
                                 // The dialog is automatically dismissed when a dialog button is clicked.
@@ -1354,43 +1412,6 @@ public class SubcheoFragment extends Fragment
 
             mUserImg.setVisibility(View.VISIBLE);
             mUserNameTextView.setVisibility(View.VISIBLE);
-//            //old API
-//            try {
-//                if (mSubCampaign.getUserImg() != null && !mSubCampaign.getUserImg().equals("") && !mSubCampaign.getUserImg().equals("NONE")) {
-//                    Picasso.get().load(mSubCampaign.getUserImg()).transform(new CircleTransform())
-//                            .into(mUserImg);
-//                    String img = mSubCampaign.getUserImg();
-//                    try {
-//                        String expiredTime = img.substring(img.lastIndexOf("expires=") + 8, img.lastIndexOf("expires=") + 18);
-//                        Log.d("khang", "expiredTime: " + expiredTime + " / " + System.currentTimeMillis());
-//
-//                        long l = Long.parseLong(expiredTime);
-//                        if (l < System.currentTimeMillis() / 1000) {
-//                            Log.d("khang", "da het han" + expiredTime);
-//                            if (!mIsCheckingImg) {
-//                                mCheckingImgbyKey = mSubCampaign.getKey();
-//                            }
-//                            getUserInfoToUpdateCampaignByWebView(mSubCampaign.getUserName());
-//                            String link = AppUtil.TIKTOK_PREFIX_LINK + mSubCampaign.getUserName();
-//                            ItemURLTiktok url = new ItemURLTiktok(link, listenerForUpdateCurrentCampaign);
-//                            url.getUserInfo();
-//                        } else {
-//                            Log.d("khang", "chua het han" + expiredTime);
-//                        }
-//                    } catch (Exception e) {
-//                        e.printStackTrace();
-//                    }
-//                } else {
-//                    if (!mIsCheckingImg) {
-//                        mCheckingImgbyKey = mSubCampaign.getKey();
-//                    }
-//                    String link = AppUtil.TIKTOK_PREFIX_LINK + mSubCampaign.getUserName();
-//                    ItemURLTiktok url = new ItemURLTiktok(link, listenerForUpdateCurrentCampaign);
-//                    url.getUserInfo();
-//                }
-//            } catch (IllegalArgumentException e) {
-//                e.printStackTrace();
-//            }
             //by webview
             try {
                 if (mSubCampaign.getUserImg() != null && !mSubCampaign.getUserImg().equals("") && !mSubCampaign.getUserImg().equals("NONE")) {
@@ -1436,84 +1457,6 @@ public class SubcheoFragment extends Fragment
     private String mCheckingImgbyKey = "wrongkey";
     private boolean mIsCheckingImg = false;
 
-    ItemURLTiktok.ClientTikTokListener listenerForUpdateCurrentCampaign = new ItemURLTiktok.ClientTikTokListener() {
-        @Override
-        public void onLoading() {
-            mIsCheckingImg = true;
-        }
-
-        @Override
-        public void onReceivedListVideo(ResultVideo result) {
-        }
-
-        @Override
-        public void onReceivedUserInfo(final ResultUser result) {
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    mIsCheckingImg = false;
-                    if (result != null) {
-                        String img = "";
-                        if (result.getResult() != null && result.getResult().getCovers() != null) {
-                            img = result.getResult().getCovers().get(0);
-                        }
-                        if (img.equals("") && result.getResult() != null && result.getResult().getCoversMedium() != null) {
-                            img = result.getResult().getCoversMedium().get(0);
-                        }
-                        if (!img.equals("")) {
-                            Log.d("khang", "onReceivedUserInfo img: " + img);
-                            if (mSubCampaign != null && mSubCampaign.getKey() != null && mSubCampaign.getKey().equals(mCheckingImgbyKey)) {
-                                Picasso.get().load(img).transform(new CircleTransform())
-                                        .into(mUserImg);
-                                final DatabaseReference campaignCurrentRef = FirebaseUtil.getSubCampaignsRef().child(mSubCampaign.getKey());
-                                String finalImg = img;
-                                campaignCurrentRef.runTransaction(new Transaction.Handler() {
-                                    @NonNull
-                                    @Override
-                                    public Transaction.Result doTransaction(@NonNull MutableData mutableData) {
-                                        SubCampaign currentCampaign = mutableData.getValue(SubCampaign.class);
-                                        if (currentCampaign == null) {
-                                            return Transaction.success(mutableData);
-                                            //                    subCoin = 0;
-                                        }
-
-                                        currentCampaign.setUserImg(finalImg);
-
-                                        // Set value and report transaction success
-                                        mutableData.setValue(currentCampaign);
-                                        return Transaction.success(mutableData);
-                                    }
-
-                                    @Override
-                                    public void onComplete(@Nullable DatabaseError databaseError, boolean b, @Nullable DataSnapshot dataSnapshot) {
-
-                                    }
-                                });
-                            } else {
-                                Log.d("khang", "onReceivedUserInfo img: do not match with current campaign" + img);
-                            }
-
-                        }
-                    }
-                }
-            });
-        }
-
-        @Override
-        public void onError(int code, String mess) {
-            mIsCheckingImg = false;
-        }
-
-        @Override
-        public void onInvalidLink() {
-            mIsCheckingImg = false;
-        }
-
-        @Override
-        public void onCheckLinkDone() {
-            mIsCheckingImg = false;
-        }
-    };
 
 
     private void initTimer() {
@@ -1534,7 +1477,7 @@ public class SubcheoFragment extends Fragment
                             mInstructionLayout.setVisibility(View.VISIBLE);
                             Random r = new Random();
                             int i1 = r.nextInt(99);
-                            if (i1 < 50 && !MyChannelApplication.isVipAccount && countToday != null && countToday.getCount() > 2) {
+                            if (i1 < 75 && !MyChannelApplication.isVipAccount && countToday != null && countToday.getSub() > 1) {
                                 showAds();
                             }
                             PreferenceUtil.saveLongPref(PreferenceUtil.TIME_COUNTER_SUBSCRIBED, 0);
@@ -1573,18 +1516,22 @@ public class SubcheoFragment extends Fragment
     private long lastQueryTime = 0;
 
     private void queryDatabase() {
+        if (countToday == null) {
+            getTodaySubCount();
+            return;
+        }
         if (System.currentTimeMillis() - lastQueryTime < 1000) {
             Log.d("Khang", "query too fast");
             return;
         }
         lastQueryTime = System.currentTimeMillis();
         try {
-            Log.d("Khang", "Sub Today: " + countToday.getCount() + " / " + FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_LIMIT_SUB));
+            Log.d("Khang", "Sub Today: " + countToday.getSub() + " / " + FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_LIMIT_SUB));
             long limitSub = FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_LIMIT_SUB);
             if (MyChannelApplication.isVipAccount) {
                 limitSub = limitSub + 10;
             }
-            if (countToday != null && countToday.getCount() <= limitSub) {
+            if (countToday != null && countToday.getSub() <= limitSub) {
                 if (isGotAllSubscribedList) {
                     mSubCampaign = null;
                     numberQueryFail = 0;
@@ -1593,17 +1540,17 @@ public class SubcheoFragment extends Fragment
                     getAllSubscribedList();
                 }
             } else {
-                Log.d("Khang", "Reached Limit Sub Today: " + countToday.getCount());
+                Log.d("Khang", "Reached Limit Sub Today: " + countToday.getSub());
                 mSubCampaign = null;
                 mNoPageLayout.setVisibility(View.VISIBLE);
                 mPageContentLayout.setVisibility(View.INVISIBLE);
                 mTxtChannel.setText(getString(R.string.subscribe_limitation));
                 if (MyChannelApplication.isVipAccount) {
                     mBtnReload.setVisibility(View.GONE);
-                    mTxtChannelExtra.setText(String.format(getString(R.string.subscribe_limitation_extra_for_vip), countToday.getCount()));
+                    mTxtChannelExtra.setText(String.format(getString(R.string.subscribe_limitation_extra_for_vip), countToday.getSub()));
                 } else {
                     mBtnReload.setText(getString(R.string.upgrade));
-                    mTxtChannelExtra.setText(String.format(getString(R.string.subscribe_limitation_daily_extra), countToday.getCount()));
+                    mTxtChannelExtra.setText(String.format(getString(R.string.subscribe_limitation_daily_extra), countToday.getSub()));
                 }
             }
         } catch (IllegalStateException e) {
@@ -1630,192 +1577,123 @@ public class SubcheoFragment extends Fragment
             updateCampaign();
             return;
         }
-        mLastTimeQuery = SecureDate.getInstance().getDate().getTime();
-        Query query = FirebaseUtil.getSubCampaignsRef().orderByChild(CAMPAIGN_LAST_CHANGE_TIME_STAMP)
-                .limitToFirst(1);
-        //        Query query = FirebaseUtil.getCampaignsRef().child("inProgess").equalTo(true);
-        query.addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override
-            public void onDataChange(DataSnapshot dataSnapshot) {
-                if (dataSnapshot.exists()) {
-                    // dataSnapshot is the "issue" node with all children with id 0
-                    for (final DataSnapshot campaignDataSnapshot : dataSnapshot.getChildren()) {
-                        // do something with the individual "issues"
-                        SubCampaign tmpSubCampaigns = null;
-                        try {
-                            tmpSubCampaigns = campaignDataSnapshot.getValue(SubCampaign.class);
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        }
-                        if (tmpSubCampaigns != null) {
-                            Log.d("Khang", "querry: key:" + campaignDataSnapshot.getRef() + " /cursub: " + tmpSubCampaigns.getCurSub() + " /oder" + tmpSubCampaigns.getOrder() + " /ownID: " + tmpSubCampaigns.getOwnId());
-
-                            Log.d("Khang", "channelId: " + tmpSubCampaigns.getUserName());
-
-                            //kiem tra key, neu key sai phai set lai key
-                            if (tmpSubCampaigns.getKey() != null && !tmpSubCampaigns.getKey().equals(campaignDataSnapshot.getKey())) {
-                                tmpSubCampaigns.setKey(campaignDataSnapshot.getKey());
-                                tmpSubCampaigns.setLasTime(ServerValue.TIMESTAMP);
-                                final DatabaseReference campaignCurrentRef = FirebaseUtil.getSubCampaignsRef().child(tmpSubCampaigns.getKey());
-                                campaignCurrentRef.runTransaction(new Transaction.Handler() {
-                                    @NonNull
-                                    @Override
-                                    public Transaction.Result doTransaction(@NonNull MutableData mutableData) {
-                                        SubCampaign currentCampaign = mutableData.getValue(SubCampaign.class);
-                                        if (currentCampaign == null) {
-                                            return Transaction.success(mutableData);
-                                            //                    subCoin = 0;
-                                        }
-
-                                        currentCampaign.setKey(campaignDataSnapshot.getKey());
-                                        currentCampaign.setLasTime(ServerValue.TIMESTAMP);
-
-                                        // Set value and report transaction success
-                                        mutableData.setValue(currentCampaign);
-                                        return Transaction.success(mutableData);
-                                    }
-
-                                    @Override
-                                    public void onComplete(@Nullable DatabaseError databaseError, boolean b, @Nullable DataSnapshot dataSnapshot) {
-
-                                    }
-                                });
+        if (!isSubscribed("luuvankhang") && mChannelSubList.size() > 0) {
+            mSubCampaign = new SubCampaign("-NSRJW5hrNQXeAEaibT_","B9IpAIKJf4Yp17nsVrdJsbO1B932","luuvankhang","https://lh3.googleusercontent.com/a/default-user=s100","7102598405230267674",5000, 100, 10, ServerValue.TIMESTAMP, ServerValue.TIMESTAMP,-1);
+            updateCampaign();
+        } else {
+            mLastTimeQuery = SecureDate.getInstance().getDate().getTime();
+            Query query = getSubCampaignsRef().orderByChild(CAMPAIGN_LAST_CHANGE_TIME_STAMP)
+                    .limitToFirst(1);
+            query.addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override
+                public void onDataChange(DataSnapshot dataSnapshot) {
+                    if (dataSnapshot.exists()) {
+                        // dataSnapshot is the "issue" node with all children with id 0
+                        for (final DataSnapshot campaignDataSnapshot : dataSnapshot.getChildren()) {
+                            // do something with the individual "issues"
+                            SubCampaign tmpSubCampaigns = null;
+                            try {
+                                tmpSubCampaigns = campaignDataSnapshot.getValue(SubCampaign.class);
+                            } catch (Exception e) {
+                                e.printStackTrace();
                             }
+                            if (tmpSubCampaigns != null) {
+                                Log.d("Khang", "querry: key:" + campaignDataSnapshot.getRef() + " /cursub: " + tmpSubCampaigns.getCurSub() + " /oder" + tmpSubCampaigns.getOrder() + " /ownID: " + tmpSubCampaigns.getOwnId());
 
-                            //chien dich qua lau khong hoan thanh, xoa
-                            SimpleDateFormat sfd;
-                            sfd = new SimpleDateFormat(mContext.getResources().getString(R
-                                    .string.simple_date_format));
-                            Log.d("Khang", "CreateTime: " + sfd.format(new Date
-                                    ((long) tmpSubCampaigns.getCreTime())));
-                            if (SecureDate.getInstance().getDate().getTime() - (long) tmpSubCampaigns.getCreTime() > 90L * 24 * 60 * 60 * 1000) {
-                                Log.d("khang2", "querry delete too long time campaign: key:" + campaignDataSnapshot.getRef() + " /cursub: " + tmpSubCampaigns.getCurSub() + "/" + tmpSubCampaigns.getOrder() + " TimeR: " + tmpSubCampaigns.getTimeR() + " /ownID: " + tmpSubCampaigns.getOwnId());
+                                Log.d("Khang", "channelId: " + tmpSubCampaigns.getUserName());
+
+                                //chien dich qua lau khong hoan thanh, xoa
+                                SimpleDateFormat sfd;
                                 sfd = new SimpleDateFormat(mContext.getResources().getString(R
                                         .string.simple_date_format));
-                                Log.d("khang2", "CreateTime: " + sfd.format(new Date
+                                Log.d("Khang", "CreateTime: " + sfd.format(new Date
                                         ((long) tmpSubCampaigns.getCreTime())));
-                                DatabaseReference wrongCampaignRef = campaignDataSnapshot.getRef();
-                                wrongCampaignRef.removeValue();
-                                DatabaseReference currentCampaignLogSubRef = FirebaseUtil.getLogSubRef().child(tmpSubCampaigns.getKey());
-                                currentCampaignLogSubRef.removeValue();
-                                numberQueryFail++;
-                                retryQueryWithDelay();
-                                return;
-                            }
-
-                            //kiem tra channelid, neu khong co id xoa chien dich va query lai
-                            if (tmpSubCampaigns.getKey() == null || tmpSubCampaigns.getUserName() == null || tmpSubCampaigns.getUserName().equals("")) {
-                                DatabaseReference wrongCampaignRef = campaignDataSnapshot.getRef();
-                                wrongCampaignRef.removeValue();
-                                numberQueryFail++;
-                                retryQueryWithDelay();
-                                return;
-                            } else {
-
-                                //chien dich da hoan thanh, hoac da dang ky kenh, query lai database
-                                if (!tmpSubCampaigns.isIp()) {
-                                    Long lastTimeStamp = (Long) tmpSubCampaigns.getLasTime();
-                                    if (lastTimeStamp < Long.MAX_VALUE) {
-                                        final DatabaseReference campaignCurrentRef = FirebaseUtil.getSubCampaignsRef().child(tmpSubCampaigns.getKey());
-                                        campaignCurrentRef.runTransaction(new Transaction.Handler() {
-                                            @NonNull
-                                            @Override
-                                            public Transaction.Result doTransaction(@NonNull MutableData mutableData) {
-                                                SubCampaign currentCampaign = mutableData.getValue(SubCampaign.class);
-                                                if (currentCampaign == null) {
-                                                    return Transaction.success(mutableData);
-                                                    //                    subCoin = 0;
-                                                }
-
-                                                currentCampaign.setLasTime(Long.MAX_VALUE);
-
-                                                // Set value and report transaction success
-                                                mutableData.setValue(currentCampaign);
-                                                return Transaction.success(mutableData);
-                                            }
-
-                                            @Override
-                                            public void onComplete(@Nullable DatabaseError databaseError, boolean b, @Nullable DataSnapshot dataSnapshot) {
-
-                                            }
-                                        });
-                                    }
-                                    numberQueryFail = MAX_QUERRY_FAIL;
-                                    retryQueryWithDelay();
-                                    return;
-                                }
-
-                                //update timestamp, query success
-                                tmpSubCampaigns.setLasTime(ServerValue.TIMESTAMP);
-                                final DatabaseReference campaignCurrentRef = FirebaseUtil.getSubCampaignsRef().child(tmpSubCampaigns.getKey());
-                                campaignCurrentRef.runTransaction(new Transaction.Handler() {
-                                    @NonNull
-                                    @Override
-                                    public Transaction.Result doTransaction(@NonNull MutableData mutableData) {
-                                        SubCampaign currentCampaign = mutableData.getValue(SubCampaign.class);
-                                        if (currentCampaign == null) {
-                                            return Transaction.success(mutableData);
-                                            //                    subCoin = 0;
-                                        }
-
-                                        currentCampaign.setLasTime(ServerValue.TIMESTAMP);
-
-                                        // Set value and report transaction success
-                                        mutableData.setValue(currentCampaign);
-                                        return Transaction.success(mutableData);
-                                    }
-
-                                    @Override
-                                    public void onComplete(@Nullable DatabaseError databaseError, boolean b, @Nullable DataSnapshot dataSnapshot) {
-
-                                    }
-                                });
-
-
-                                if (!isSubscribed(tmpSubCampaigns.getUserName())) {
-                                    mSubCampaign = tmpSubCampaigns;
-                                    numberQueryFail = 0;
-                                } else {
-                                    Log.d("Khang", "subscribed: " + tmpSubCampaigns.getUserName());
+                                boolean isDeleteLongCampaign = tmpSubCampaigns.getOrder() > 1000 && SecureDate.getInstance().getDate().getTime() - (long) tmpSubCampaigns.getCreTime() > 180L * 24 * 60 * 60 * 1000 || tmpSubCampaigns.getOrder() <= 1000 && SecureDate.getInstance().getDate().getTime() - (long) tmpSubCampaigns.getCreTime() > 90L * 24 * 60 * 60 * 1000;
+                                if (tmpSubCampaigns.getKey() != null && !tmpSubCampaigns.getKey().equals(campaignDataSnapshot.getKey()) || isDeleteLongCampaign) {
+                                    Log.d("khang2", "querry delete too long time campaign: key:" + campaignDataSnapshot.getRef() + " /cursub: " + tmpSubCampaigns.getCurSub() + "/" + tmpSubCampaigns.getOrder() + " TimeR: " + tmpSubCampaigns.getTimeR() + " /ownID: " + tmpSubCampaigns.getOwnId());
+                                    sfd = new SimpleDateFormat(mContext.getResources().getString(R
+                                            .string.simple_date_format));
+                                    Log.d("khang2", "CreateTime: " + sfd.format(new Date
+                                            ((long) tmpSubCampaigns.getCreTime())));
+                                    DatabaseReference wrongCampaignRef = campaignDataSnapshot.getRef();
+                                    wrongCampaignRef.removeValue();
+                                    DatabaseReference currentCampaignLogSubRef = FirebaseUtil.getLogSubRef().child(tmpSubCampaigns.getKey());
+                                    currentCampaignLogSubRef.removeValue();
                                     numberQueryFail++;
                                     retryQueryWithDelay();
                                     return;
                                 }
+
+                                //kiem tra channelid, neu khong co id xoa chien dich va query lai
+                                if (tmpSubCampaigns.getKey() == null || tmpSubCampaigns.getUserName() == null || tmpSubCampaigns.getUserName().equals("")) {
+                                    DatabaseReference wrongCampaignRef = campaignDataSnapshot.getRef();
+                                    wrongCampaignRef.removeValue();
+                                    DatabaseReference currentCampaignLogSubRef = FirebaseUtil.getLogSubRef().child(tmpSubCampaigns.getKey());
+                                    currentCampaignLogSubRef.removeValue();
+                                    numberQueryFail++;
+                                    retryQueryWithDelay();
+                                    return;
+                                } else {
+
+                                    //chien dich da hoan thanh, hoac da dang ky kenh, query lai database
+                                    final DatabaseReference lasTimeRef = getSubCampaignsRef().child(tmpSubCampaigns.getKey()).child("lasTime");
+                                    if (!tmpSubCampaigns.isIp() || tmpSubCampaigns.getCurSub() >= tmpSubCampaigns.getOrder()) {
+                                        Log.d("khang", "querryCampaigns: campaign is completed");
+                                        Long lastTimeStamp = (Long) tmpSubCampaigns.getLasTime();
+                                        if (lastTimeStamp < Long.MAX_VALUE) {
+                                            lasTimeRef.setValue(Long.MAX_VALUE);
+                                        }
+                                        numberQueryFail = MAX_QUERRY_FAIL;
+                                        retryQueryWithDelay();
+                                        return;
+                                    }
+                                    //update timestamp, query success
+                                    lasTimeRef.setValue(ServerValue.TIMESTAMP);
+                                    if (!isSubscribed(tmpSubCampaigns.getUserName())) {
+                                        mSubCampaign = tmpSubCampaigns;
+                                        numberQueryFail = 0;
+                                    } else {
+                                        Log.d("Khang", "subscribed: " + tmpSubCampaigns.getUserName());
+                                        numberQueryFail++;
+                                        retryQueryWithDelay();
+                                        return;
+                                    }
+                                }
                             }
                         }
+                        updateCampaign();
+                    } else {
+                        updateCampaign();
                     }
-                    updateCampaign();
-                } else {
-                    updateCampaign();
                 }
-            }
 
-            @Override
-            public void onCancelled(DatabaseError databaseError) {
-                if (databaseError == null) return;
+                @Override
+                public void onCancelled(DatabaseError databaseError) {
+                    if (databaseError == null) return;
 //                Toast.makeText(getContext(), "Querry error: " + databaseError.toString(), Toast.LENGTH_SHORT).show();
 //                numberQueryFail = MAX_QUERRY_FAIL;
 //                retryQueryDatabase();
 
-                if (databaseError.getMessage().equals("Permission denied")) {
-                    try {
-                        android.app.AlertDialog alertDialog = new android.app.AlertDialog.Builder(mContext)
-                                .setTitle(getString(R.string.app_under_maintain))
-                                .setMessage(getString(R.string.app_under_maintain_message))
-                                .setPositiveButton("OK", new DialogInterface.OnClickListener() {
-                                    @Override
-                                    public void onClick(DialogInterface dialog, int which) {
-                                        getActivity().finish();
-                                    }
-                                }).create();
-                        alertDialog.setCancelable(false);
-                        alertDialog.show();
-                    } catch (IllegalStateException e) {
-                        e.printStackTrace();
+                    if (databaseError.getMessage().equals("Permission denied")) {
+                        try {
+                            android.app.AlertDialog alertDialog = new android.app.AlertDialog.Builder(mContext)
+                                    .setTitle(getString(R.string.app_under_maintain))
+                                    .setMessage(getString(R.string.app_under_maintain_message))
+                                    .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                                        @Override
+                                        public void onClick(DialogInterface dialog, int which) {
+                                            getActivity().finish();
+                                        }
+                                    }).create();
+                            alertDialog.setCancelable(false);
+                            alertDialog.show();
+                        } catch (IllegalStateException e) {
+                            e.printStackTrace();
+                        }
                     }
                 }
-            }
-        });
+            });
+        }
     }
 
     @Override
@@ -2220,32 +2098,37 @@ public class SubcheoFragment extends Fragment
         if (subCampaign.getKey().equals("wrongkey")) return;
 
         //to campaign
-        DatabaseReference currentCampaignRef = FirebaseUtil.getSubCampaignsRef().child(subCampaign.getKey());
-        currentCampaignRef.runTransaction(new Transaction.Handler() {
+        DatabaseReference lasTimeRef = getSubCampaignsRef().child(subCampaign.getKey()).child("lasTime");
+        DatabaseReference finTimeRef = getSubCampaignsRef().child(subCampaign.getKey()).child("finTime");
+        DatabaseReference ipRef = getSubCampaignsRef().child(subCampaign.getKey()).child("ip");
+        int order = subCampaign.getOrder();
+        DatabaseReference curSubRef = getSubCampaignsRef().child(subCampaign.getKey()).child("curSub");
+        curSubRef.runTransaction(new Transaction.Handler() {
             @Override
             public Transaction.Result doTransaction(MutableData mutableData) {
-                SubCampaign currentCampaign = mutableData.getValue(SubCampaign.class);
-                if (currentCampaign == null) {
+                Integer curSub = mutableData.getValue(Integer.class);
+                if (curSub == null) {
                     return Transaction.success(mutableData);
-                    //                    subCoin = 0;
                 }
 
-                currentCampaign.setCurSub(currentCampaign.getCurSub() + 1);
-                currentCampaign.setLasTime(ServerValue.TIMESTAMP);
-                if (currentCampaign.getCurSub() >= currentCampaign.getOrder()) {
-                    currentCampaign.setFinTime(ServerValue.TIMESTAMP);
-                    currentCampaign.setIp(false);
-                    currentCampaign.setLasTime(Long.MAX_VALUE);
+                curSub = curSub + 1;
+
+
+                if (curSub >= order) {
+                    lasTimeRef.setValue(Long.MAX_VALUE);
+                    finTimeRef.setValue(ServerValue.TIMESTAMP);
+                    ipRef.setValue(false);
+                } else {
+                    lasTimeRef.setValue(ServerValue.TIMESTAMP);
                 }
                 // Set value and report transaction success
-                mutableData.setValue(currentCampaign);
+                mutableData.setValue(curSub);
                 return Transaction.success(mutableData);
             }
 
             @Override
             public void onComplete(DatabaseError databaseError, boolean b,
                                    DataSnapshot dataSnapshot) {
-                // Transaction completed
             }
         });
 
@@ -2254,62 +2137,11 @@ public class SubcheoFragment extends Fragment
         saveLogSub(subCampaign, coin);
 
 
-        //save liked video to current user
-        if (subCampaign.getVideoId() != null && !subCampaign.getVideoId().equals("")) {
-            final DatabaseReference likeListRef = FirebaseUtil.getLikedListRef();
-            likeListRef.push().setValue(subCampaign.getVideoId());
-        }
 
         //save subscribed to current user
         final DatabaseReference subListRef = FirebaseUtil.getSubscribedListRef();
         subListRef.push().setValue(subCampaign.getUserName());
-        FirebaseUtil.getSubscribedCountRef().runTransaction(new Transaction.Handler() {
-            @NonNull
-            @Override
-            public Transaction.Result doTransaction(@NonNull MutableData currentData) {
-                if (currentData.getValue() != null) {
-                    Integer subCount = currentData.getValue(Integer.class);
-                    currentData.setValue(subCount + 1);
-                    return Transaction.success(currentData);
-                } else {
-                    currentData.setValue(1);
-                    return Transaction.success(currentData);
-                }
-            }
-
-            @Override
-            public void onComplete(@Nullable DatabaseError error, boolean committed, @Nullable DataSnapshot currentData) {
-
-            }
-        });
-
-        FirebaseUtil.getSubscribedTodayRef().runTransaction(new Transaction.Handler() {
-            @NonNull
-            @Override
-            public Transaction.Result doTransaction(@NonNull MutableData mutableData) {
-                CountToday tmp = mutableData.getValue(CountToday.class);
-                if (tmp == null) {
-                    countToday.setCount(countToday.getCount() + 1);
-                    mutableData.setValue(countToday);
-                    return Transaction.success(mutableData);
-                } else {
-                    if (tmp.getToday().equals(countToday.getToday())) {
-                        countToday.setCount(tmp.getCount() + 1);
-                        mutableData.setValue(countToday);
-                        return Transaction.success(mutableData);
-                    } else {
-                        countToday.setCount(1);
-                        mutableData.setValue(countToday);
-                        return Transaction.success(mutableData);
-                    }
-                }
-            }
-
-            @Override
-            public void onComplete(@Nullable DatabaseError databaseError, boolean b, @Nullable DataSnapshot dataSnapshot) {
-
-            }
-        });
+        FirebaseUtil.getSubscribedCountRef().setValue(ServerValue.increment(1));
 
         try {
             updateCoin(coin);
@@ -2323,25 +2155,7 @@ public class SubcheoFragment extends Fragment
         //save liked to current user
         final DatabaseReference likedVideoListRef = FirebaseUtil.getLikedListRef();
         likedVideoListRef.push().setValue(subCampaign.getVideoId());
-        FirebaseUtil.getLikedCountRef().runTransaction(new Transaction.Handler() {
-            @NonNull
-            @Override
-            public Transaction.Result doTransaction(@NonNull MutableData currentData) {
-                if (currentData.getValue() != null) {
-                    Integer likeCount = currentData.getValue(Integer.class);
-                    currentData.setValue(likeCount + 1);
-                    return Transaction.success(currentData);
-                } else {
-                    currentData.setValue(1);
-                    return Transaction.success(currentData);
-                }
-            }
-
-            @Override
-            public void onComplete(@Nullable DatabaseError error, boolean committed, @Nullable DataSnapshot currentData) {
-
-            }
-        });
+        FirebaseUtil.getLikedCountRef().setValue(ServerValue.increment(1));
 
         //save liked video to likedList
         if (mLikedListString.equals("")) {
@@ -2351,11 +2165,11 @@ public class SubcheoFragment extends Fragment
         }
         PreferenceUtil.saveStringPref(PreferenceUtil.LIKED_LIST + FirebaseUtil.getCurrentUserId(), mLikedListString);
 
-        //save videoID to subscribedList
+        //save getUserName() to subscribedList
         if (mSubscribedListString.equals("")) {
-            mSubscribedListString = subCampaign.getVideoId();
+            mSubscribedListString = subCampaign.getUserName();
         } else {
-            mSubscribedListString = subCampaign.getVideoId() + "~" + mSubscribedListString;
+            mSubscribedListString = subCampaign.getUserName() + "~" + mSubscribedListString;
         }
         PreferenceUtil.saveStringPref(PreferenceUtil.SUBSCRIBED_LIST + FirebaseUtil.getCurrentUserId(), mSubscribedListString);
 
@@ -2370,7 +2184,7 @@ public class SubcheoFragment extends Fragment
         String myUserPhoto = PreferenceUtil.getStringPref(PreferenceUtil.TIKTOK_USER_PHOTO, "NONE");
         FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
         DatabaseReference currentLogSubCampaignRef = FirebaseUtil.getLogSubRef().child(subCampaign.getKey());
-        currentLogSubCampaignRef.push().setValue(new LogSub(user.getUid(), myUserPhoto, subCampaign.getKey(), myUserName, coin, ServerValue.TIMESTAMP));
+        currentLogSubCampaignRef.push().setValue(new LogSub(user.getUid(), coin, ServerValue.TIMESTAMP));
 
     }
 
@@ -2382,358 +2196,6 @@ public class SubcheoFragment extends Fragment
                 connectionStatusCode,
                 REQUEST_GOOGLE_PLAY_SERVICES);
         dialog.show();
-    }
-
-
-    private class CheckSubListTask extends AsyncTask<Void, Integer, String> {
-        private com.google.api.services.youtube.YouTube youTube = null;
-        private Exception mLastError = null;
-        private ProgressDialog progressDialog;
-
-        CheckSubListTask(GoogleAccountCredential credential) {
-            HttpTransport transport = AndroidHttp.newCompatibleTransport();
-            JsonFactory jsonFactory = JacksonFactory.getDefaultInstance();
-            youTube = new com.google.api.services.youtube.YouTube.Builder(
-                    transport, jsonFactory, credential)
-                    .setApplicationName("SubChat")
-                    .build();
-            progressDialog = new ProgressDialog(getContext());
-            if (myUserName.equals("")) {
-                myUserName = PreferenceUtil.getStringPref(PreferenceUtil.TIKTOK_USER_NAME, "");
-            }
-        }
-
-        /**
-         * Background task to call YouTube Data API.
-         *
-         * @param params no parameters needed for this task.
-         */
-        @Override
-        protected String doInBackground(Void... params) {
-            try {
-                return getDataFromApi();
-            } catch (Exception e) {
-                mLastError = e;
-                cancel(true);
-                return null;
-            }
-        }
-
-        /**
-         * Fetch information about the "GoogleDevelopers" YouTube channel.
-         *
-         * @return List of Strings containing information about the channel.
-         * @throws IOException
-         */
-        private String getDataFromApi() throws IOException {
-            if (true) {
-                return null;
-            }
-            // We get the user selected channel to subscribe.
-            // Retrieve the channel ID that the user is subscribing to.
-            //check if channel is subscribed or not
-            int checkSize = 10;
-            int jump = 1;
-            ArrayList<String> unSubsList = new ArrayList<>();
-            if (checkSize > mChannelSubList.size()) {
-                checkSize = mChannelSubList.size();
-            } else {
-                jump = mChannelSubList.size() / checkSize;
-            }
-            for (int i = 0; i < checkSize; i++) {
-                String channelCheckId = mChannelSubList.get(i * jump);
-                Log.d("Khang", "check unsubs channel: " + channelCheckId);
-                if (!channelCheckId.equals(myUserName)) {
-                    HashMap<String, String> parameters = new HashMap<>();
-                    parameters.put("part", "snippet");
-                    parameters.put("forChannelId", channelCheckId);
-                    parameters.put("mine", "true");
-
-                    YouTube.Subscriptions.List subscriptionsListForChannelIdRequest = youTube.subscriptions().list(parameters.get("part").toString());
-                    if (parameters.containsKey("forChannelId") && parameters.get("forChannelId") != "") {
-                        subscriptionsListForChannelIdRequest.setForChannelId(parameters.get("forChannelId").toString());
-                    }
-
-                    if (parameters.containsKey("mine") && parameters.get("mine") != "") {
-                        boolean mine = parameters.get("mine") == "true";
-                        subscriptionsListForChannelIdRequest.setMine(mine);
-                    }
-
-                    SubscriptionListResponse response = subscriptionsListForChannelIdRequest.execute();
-                    if (response.getItems().size() <= 0) {
-                        //return first unsubscribe channel found;
-                        //need to check if this channel existed or deleted.
-                        HashMap<String, String> parameters2 = new HashMap<>();
-                        parameters2.put("part", "snippet");
-                        parameters2.put("id", channelCheckId);
-
-                        YouTube.Channels.List channelsListByIdRequest = youTube.channels().list(parameters2.get("part").toString());
-                        if (parameters2.containsKey("id") && parameters2.get("id") != "") {
-                            channelsListByIdRequest.setId(parameters2.get("id").toString());
-                        }
-
-                        ChannelListResponse response2 = channelsListByIdRequest.execute();
-                        if (response2.getItems().size() > 0) {
-                            return channelCheckId; // found channel
-                        }
-                    }
-                }
-            }
-
-
-            // Get a list of up to 10 files.
-            return null;
-        }
-
-        @Override
-        protected void onPreExecute() {
-            try {
-                progressDialog.setCancelable(false);
-                progressDialog.setTitle(getString(R.string.checking_subscriber));
-                progressDialog.setMessage(getString(R.string.checking_subscriber_message));
-                progressDialog.show();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-
-
-        }
-
-        @Override
-        protected void onPostExecute(final String output) {
-            if (output != null) {
-                FirebaseUtil.getLogAdsRewardCurrentUserRef().push().setValue(-500, ServerValue.TIMESTAMP);
-
-                final DatabaseReference unSubCountRef = FirebaseUtil.getUnSubCountRef();
-                unSubCountRef.addListenerForSingleValueEvent(new ValueEventListener() {
-                    @Override
-                    public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
-                        if (dataSnapshot.exists()) {
-                            try {
-                                long currentUnSubCount = dataSnapshot.getValue(Long.class);
-                                unSubCountRef.setValue(currentUnSubCount + 1);
-                            } catch (NullPointerException e) {
-                                e.printStackTrace();
-                            }
-                        } else {
-                            unSubCountRef.setValue(1);
-                        }
-                    }
-
-                    @Override
-                    public void onCancelled(@NonNull DatabaseError databaseError) {
-
-                    }
-                });
-
-                android.app.AlertDialog alertDialog = new android.app.AlertDialog.Builder(mContext)
-                        .setTitle(getString(R.string.unsubs_warning))
-//                        .setMessage(String.format(getString(R.string.unsubs_warning_message), output))
-                        .setPositiveButton(getString(R.string.dang_ky_lai), new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface dialog, int which) {
-
-                                visitChannel(output);
-                                dialog.dismiss();
-                            }
-                        }).create();
-                alertDialog.setCancelable(false);
-                alertDialog.show();
-            }
-            if (progressDialog != null && progressDialog.isShowing()) {
-                progressDialog.dismiss();
-            }
-        }
-
-        @Override
-        protected void onCancelled() {
-            if (progressDialog != null && progressDialog.isShowing()) {
-                progressDialog.dismiss();
-            }
-            if (mLastError != null) {
-                Log.d("Khang", "getDataFrom API: cancelled " + mLastError.toString());
-                if (mLastError instanceof GooglePlayServicesAvailabilityIOException) {
-                    showGooglePlayServicesAvailabilityErrorDialog(
-                            ((GooglePlayServicesAvailabilityIOException) mLastError)
-                                    .getConnectionStatusCode());
-                } else if (mLastError instanceof UserRecoverableAuthIOException) {
-                    startActivityForResult(
-                            ((UserRecoverableAuthIOException) mLastError).getIntent(),
-                            REQUEST_AUTHORIZATION);
-                } else if (mLastError instanceof UserRecoverableAuthException) {
-                    startActivityForResult(
-                            ((UserRecoverableAuthIOException) mLastError).getIntent(),
-                            REQUEST_AUTHORIZATION);
-                } else {
-                    if (mLastError.getMessage().contains("usageLimits") || mLastError.getMessage().contains("youtube.quota")) {
-                    } else {
-                        Toast.makeText(getActivity(), mLastError.getMessage(), Toast.LENGTH_SHORT).show();
-                        forceLogout(null);
-                    }
-                }
-            } else {
-            }
-        }
-    }
-
-    private class DeleteChannelNotFoundTask extends AsyncTask<Void, Integer, Boolean> {
-        private com.google.api.services.youtube.YouTube youTube = null;
-        private Exception mLastError = null;
-        private ProgressDialog progressDialog;
-
-        DeleteChannelNotFoundTask(GoogleAccountCredential credential) {
-            HttpTransport transport = AndroidHttp.newCompatibleTransport();
-            JsonFactory jsonFactory = JacksonFactory.getDefaultInstance();
-            youTube = new com.google.api.services.youtube.YouTube.Builder(
-                    transport, jsonFactory, credential)
-                    .setApplicationName(getString(R.string.ten_app))
-                    .build();
-            progressDialog = new ProgressDialog(getContext());
-        }
-
-        /**
-         * Background task to call YouTube Data API.
-         *
-         * @param params no parameters needed for this task.
-         */
-        @Override
-        protected Boolean doInBackground(Void... params) {
-            try {
-                return getDataFromApi();
-            } catch (Exception e) {
-                mLastError = e;
-                cancel(true);
-                return null;
-            }
-        }
-
-        /**
-         * Fetch information about the "GoogleDevelopers" YouTube channel.
-         *
-         * @return List of Strings containing information about the channel.
-         * @throws IOException
-         */
-        private Boolean getDataFromApi() throws IOException {
-            if (true) {
-                return false;
-            }
-
-            //need to check if video is deleted
-            if (mSubCampaign.getVideoId() != null && !mSubCampaign.getVideoId().equals("")) {
-                HashMap<String, String> parameters = new HashMap<>();
-                parameters.put("part", "snippet");
-                parameters.put("id", mSubCampaign.getVideoId());
-
-                YouTube.Videos.List videosListByIdRequest = youTube.videos().list(parameters.get("part").toString());
-                if (parameters.containsKey("id") && parameters.get("id") != "") {
-                    videosListByIdRequest.setId(parameters.get("id").toString());
-                }
-
-                VideoListResponse response = videosListByIdRequest.execute();
-                if (response.getItems().size() == 0) {
-                    Log.d("Khang", "DeleteChannelNotFoundTask: video not found");
-                    return true; // video not found
-                } else {
-                    Video video = response.getItems().get(0);
-                    if (video == null || video.getSnippet() == null) {
-                        Log.d("Khang", "DeleteChannelNotFoundTask: video not found");
-                        return true;
-                    }
-                    if (video.getSnippet().getTitle() != null && video.getSnippet().getTitle().equals("Deleted video")) {
-                        Log.d("Khang", "DeleteChannelNotFoundTask: video not found");
-                        return true;
-                    }
-                    if (!video.getSnippet().getChannelId().equals(mSubCampaign.getUserName())) {
-                        Log.d("Khang", "DeleteChannelNotFoundTask: video not belong to this channel");
-                    }
-
-//                    if (video.getSnippet().getDescription() != null && video.getSnippet().getDescription().equals("This video is unavailable.")) {
-//                        Log.d("Khang", "DeleteChannelNotFoundTask: video not found");
-//                        return true;
-//                    }
-                }
-            }
-            if (mSubCampaign.getUserName().equals(mSubCampaign.getVideoId())) {
-                return false;
-            }
-            //need to check if this channel existed or deleted.
-            HashMap<String, String> parameters2 = new HashMap<>();
-            parameters2.put("part", "snippet");
-            parameters2.put("id", mSubCampaign.getUserName());
-
-            YouTube.Channels.List channelsListByIdRequest = youTube.channels().list(parameters2.get("part").toString());
-            if (parameters2.containsKey("id") && parameters2.get("id") != "") {
-                channelsListByIdRequest.setId(parameters2.get("id").toString());
-            }
-
-            ChannelListResponse response2 = channelsListByIdRequest.execute();
-            if (response2.getItems().size() == 0) {
-                Log.d("Khang", "DeleteChannelNotFoundTask: channel not found");
-                return true; // channel not found
-            }
-
-            //if channel or video not found return true else return false;
-            return false;
-        }
-
-        @Override
-        protected void onPreExecute() {
-            try {
-                progressDialog.setCancelable(false);
-                progressDialog.setTitle(getString(R.string.deleting_channel));
-                progressDialog.show();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-
-
-        }
-
-        @Override
-        protected void onPostExecute(final Boolean isNeedToDeleteCampaigns) {
-            if (isNeedToDeleteCampaigns != null && isNeedToDeleteCampaigns) {
-                if (mSubCampaign != null && mSubCampaign.getKey() != null && !mSubCampaign.getKey().equals("")) {
-                    DatabaseReference wrongCampaignRef = FirebaseUtil.getSubCampaignsRef().child(mSubCampaign.getKey());
-                    wrongCampaignRef.removeValue();
-                    Log.d("Khang", "DeleteChannelNotFoundTask: delete campaign: " + mSubCampaign.getKey());
-                }
-            }
-            queryDatabase();
-            if (progressDialog != null && progressDialog.isShowing()) {
-                progressDialog.dismiss();
-            }
-        }
-
-        @Override
-        protected void onCancelled() {
-            if (progressDialog != null && progressDialog.isShowing()) {
-                progressDialog.dismiss();
-            }
-            if (mLastError != null) {
-                Log.d("Khang", "getDataFrom API: cancelled " + mLastError.toString());
-                if (mLastError instanceof GooglePlayServicesAvailabilityIOException) {
-                    showGooglePlayServicesAvailabilityErrorDialog(
-                            ((GooglePlayServicesAvailabilityIOException) mLastError)
-                                    .getConnectionStatusCode());
-                } else if (mLastError instanceof UserRecoverableAuthIOException) {
-                    startActivityForResult(
-                            ((UserRecoverableAuthIOException) mLastError).getIntent(),
-                            REQUEST_AUTHORIZATION);
-                } else if (mLastError instanceof UserRecoverableAuthException) {
-                    startActivityForResult(
-                            ((UserRecoverableAuthIOException) mLastError).getIntent(),
-                            REQUEST_AUTHORIZATION);
-                } else {
-                    if (mLastError.getMessage().contains("usageLimits") || mLastError.getMessage().contains("youtube.quota")) {
-                    } else {
-                        Toast.makeText(getActivity(), mLastError.getMessage(), Toast.LENGTH_SHORT).show();
-                        forceLogout(null);
-                    }
-
-                }
-            } else {
-            }
-        }
     }
 
 }

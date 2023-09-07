@@ -7,6 +7,9 @@ import tikfans.tikplus.MyChannelApplication;
 
 public class PreferenceUtil {
     public static final String FIRST_SIGN_IN_TIME = "first_sign_in_time";
+    public static final String IS_LIST_VIDEO_FROM_CURRENT_USER = "is_list_video_from_current_user";
+    public static final String TIKTOK_USER_NAME_FOR_CAMPAIGN = "user_name_for_campaign" ;
+    public static final String TIKTOK_USER_PHOTO_FOR_CAMPAIGN = "user_photo_for_campaign";
     public static String SUBSCRIBED_LIST = "subscribed_list";
     public static String LIKED_LIST = "liked_list";
     public static final String LAST_CLOSE_PROMOTE_TIME = "last_close_promote_time" ;

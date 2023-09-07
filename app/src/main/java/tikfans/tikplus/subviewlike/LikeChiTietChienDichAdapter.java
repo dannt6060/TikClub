@@ -2,6 +2,7 @@ package tikfans.tikplus.subviewlike;
 
 import static com.unity3d.scar.adapter.common.Utils.runOnUiThread;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -18,32 +19,26 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.view.ContextThemeWrapper;
 import androidx.appcompat.widget.PopupMenu;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.firebase.crashlytics.FirebaseCrashlytics;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.MutableData;
-import com.google.firebase.database.Transaction;
 import com.google.firebase.database.ValueEventListener;
 import com.squareup.picasso.Picasso;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.List;
+import java.util.concurrent.ExecutionException;
 
-import tikfans.tikplus.ItemURLTiktok;
 import tikfans.tikplus.R;
-import tikfans.tikplus.model.ItemVideo;
 import tikfans.tikplus.model.LikeCampaign;
 import tikfans.tikplus.model.LogLike;
-import tikfans.tikplus.model.ResultUser;
-import tikfans.tikplus.model.ResultVideo;
 import tikfans.tikplus.util.AppUtil;
 import tikfans.tikplus.util.CircleTransform;
 import tikfans.tikplus.util.FirebaseUtil;
@@ -86,81 +81,21 @@ public class LikeChiTietChienDichAdapter extends RecyclerView.Adapter<RecyclerVi
 
     }
 
-    ItemURLTiktok.ClientTikTokListener listener = new ItemURLTiktok.ClientTikTokListener() {
-        @Override
-        public void onLoading() {
-        }
-
-        @Override
-        public void onReceivedListVideo(ResultVideo result) {
-            List<ItemVideo> itemVideoList = result.getResult();
-            if (itemVideoList != null && itemVideoList.size() > 0) {
-                for (int i = 0; i < itemVideoList.size(); i++) {
-                    ItemVideo itemVideo = itemVideoList.get(i);
-
-                    if (campaign != null && campaign.getVideoId() != null && campaign.getVideoId().equals(itemVideo.getId())) {
-                        String img = itemVideo.getImageUrl();
-                        if (img != null) {
-                            if (campaignDetailHeaderViewHolder != null) {
-                                Picasso.get().load(img).transform(new CircleTransform())
-                                        .into(campaignDetailHeaderViewHolder.imgVideoThumb);
-                            }
-                            final DatabaseReference campaignCurrentRef = FirebaseUtil.getLikeCampaignsRef().child(campaign.getKey());
-                            campaignCurrentRef.runTransaction(new Transaction.Handler() {
-                                @NonNull
-                                @Override
-                                public Transaction.Result doTransaction(@NonNull MutableData mutableData) {
-                                    LikeCampaign currentCampaign = mutableData.getValue(LikeCampaign.class);
-                                    if (currentCampaign == null) {
-                                        return Transaction.success(mutableData);
-                                    }
-                                    currentCampaign.setVideoThumb(img);
-                                    // Set value and report transaction success
-                                    mutableData.setValue(currentCampaign);
-                                    return Transaction.success(mutableData);
-                                }
-
-                                @Override
-                                public void onComplete(@Nullable DatabaseError databaseError, boolean b, @Nullable DataSnapshot dataSnapshot) {
-                                }
-                            });
-                        }
-                    }
-                }
-            }
-        }
-
-        @Override
-        public void onReceivedUserInfo(final ResultUser result) {
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                }
-            });
-        }
-
-        @Override
-        public void onError(int code, String mess) {
-        }
-
-        @Override
-        public void onInvalidLink() {
-        }
-
-        @Override
-        public void onCheckLinkDone() {
-        }
-    };
 
     @Override
-    public void onBindViewHolder(RecyclerView.ViewHolder holder, int position) {
+    public void onBindViewHolder(RecyclerView.ViewHolder holder, @SuppressLint("RecyclerView") int position) {
         if (position == 0) {
             campaignDetailHeaderViewHolder = (CampaignDetailHeaderViewHolder) holder;
 //            textViewHolder.tvText.setText(mAuthorLiked.get(position).toString());
             if (campaign != null) {
                 Long createTimeStamp = (Long) campaign.getCreTime();
                 Long finishTimeStamp = (Long) campaign.getFinTime();
-                Picasso.get().load(campaign.getVideoThumb()).into(campaignDetailHeaderViewHolder.imgVideoThumb);
+                try {
+                    Picasso.get().load(campaign.getVideoThumb()).into(campaignDetailHeaderViewHolder.imgVideoThumb);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    FirebaseCrashlytics.getInstance().recordException(e);
+                }
 
                 if (campaign.getUserName() != null) {
                     if (campaign.getVideoThumb() != null && !campaign.getVideoThumb().equals("") && !campaign.getVideoThumb().equals("NONE")) {
@@ -172,9 +107,7 @@ public class LikeChiTietChienDichAdapter extends RecyclerView.Adapter<RecyclerVi
                             long l = Long.parseLong(expiredTime);
                             if (l < System.currentTimeMillis() / 1000) {
                                 Log.d("khang", "da het han" + expiredTime);
-                                String link = AppUtil.TIKTOK_PREFIX_LINK + campaign.getUserName();
-                                ItemURLTiktok url = new ItemURLTiktok(link, listener);
-                                url.getListVideoFromUser();
+
                             } else {
                                 Log.d("khang", "chua het han" + expiredTime);
                             }
@@ -182,9 +115,6 @@ public class LikeChiTietChienDichAdapter extends RecyclerView.Adapter<RecyclerVi
                             e.printStackTrace();
                         }
                     } else {
-                        String link = AppUtil.TIKTOK_PREFIX_LINK + campaign.getUserName();
-                        ItemURLTiktok url = new ItemURLTiktok(link, listener);
-                        url.getListVideoFromUser();
                     }
                 } else {
                     Log.d("khang", "mUserName is null");
@@ -193,9 +123,6 @@ public class LikeChiTietChienDichAdapter extends RecyclerView.Adapter<RecyclerVi
                         @Override
                         public void onDataChange(@NonNull DataSnapshot snapshot) {
                             if (snapshot.exists()) {
-                                String link = AppUtil.TIKTOK_PREFIX_LINK + snapshot.getValue(String.class);
-                                ItemURLTiktok url = new ItemURLTiktok(link, listener);
-                                url.getListVideoFromUser();
                             }
                         }
 
@@ -295,9 +222,58 @@ public class LikeChiTietChienDichAdapter extends RecyclerView.Adapter<RecyclerVi
                 }
             });
 
-            userViewHolder.txtName.setText("@"+ logLike.getLikeUName());
-            Picasso.get().load(logLike.getLikePhoto()).transform(new CircleTransform())
-                    .into(userViewHolder.profilePictureView);
+            if (logLike.getLikeUName() == null || logLike.getLikeUName().length()<1) {
+                DatabaseReference userNameRef = FirebaseUtil.getUserNameByUID(logLike.getLikeId());
+                userNameRef.addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(@NonNull DataSnapshot snapshot) {
+                        try {
+                            logLike.setLikeUName(snapshot.getValue(String.class));
+                            userViewHolder.txtName.setText("@" + logLike.getLikeUName());
+                            logLikeArrayList.set(position - 1, logLike);
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    }
+
+                    @Override
+                    public void onCancelled(@NonNull DatabaseError error) {
+
+                    }
+                });
+            } else {
+                userViewHolder.txtName.setText("@" + logLike.getLikeUName());
+            }
+
+            if (logLike.getLikePhoto() == null || logLike.getLikePhoto().equals("")) {
+                DatabaseReference userPhotoRef = FirebaseUtil.getUserPhotoByUID(logLike.getLikeId());
+                userPhotoRef.addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(@NonNull DataSnapshot snapshot) {
+                        try {
+                            Picasso.get().load(snapshot.getValue(String.class)).transform(new CircleTransform())
+                                    .into(userViewHolder.profilePictureView);
+                            logLike.setLikePhoto(snapshot.getValue(String.class));
+                            logLikeArrayList.set(position - 1, logLike);
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                            FirebaseCrashlytics.getInstance().recordException(e);
+                        }
+                    }
+
+                    @Override
+                    public void onCancelled(@NonNull DatabaseError error) {
+
+                    }
+                });
+            } else {
+                try {
+                    Picasso.get().load(logLike.getLikePhoto()).transform(new CircleTransform())
+                            .into(userViewHolder.profilePictureView);
+                } catch (Exception e) {
+                    FirebaseCrashlytics.getInstance().recordException(e);
+                }
+            }
         }
     }
 
@@ -330,10 +306,15 @@ public class LikeChiTietChienDichAdapter extends RecyclerView.Adapter<RecyclerVi
                     intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                     mContext.startActivity(intent);
                 } catch (Exception e3) {
-                    intent = new Intent(Intent.ACTION_VIEW);
-                    intent.setData(Uri.parse(videoWebUrl));
-                    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                    mContext.startActivity(intent);
+                    try {
+                        intent = new Intent(Intent.ACTION_VIEW);
+                        intent.setData(Uri.parse(videoWebUrl));
+                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        mContext.startActivity(intent);
+                    } catch (Exception e4) {
+                        e4.printStackTrace();
+                        FirebaseCrashlytics.getInstance().recordException(e4);
+                    }
                 }
             }
         }

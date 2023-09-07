@@ -3,7 +3,6 @@ package tikfans.tikplus.model;
 public class LikeCampaign {
     public String ownId; //owner ID
     public String videoId;
-    public String videoLink;
     public String videoThumb;
     public int timeR;
     public String userName;
@@ -21,13 +20,6 @@ public class LikeCampaign {
     public Object finTime; // finish time stamp
     public int order; //total view order
 
-    public String getVideoLink() {
-        return videoLink;
-    }
-
-    public void setVideoLink(String videoLink) {
-        this.videoLink = videoLink;
-    }
 
     public int curLike; // current view
     public String key; //key
@@ -75,7 +67,7 @@ public class LikeCampaign {
     }
 
 
-    public LikeCampaign(String ownId, String userName, String videoId, String videoLink, String videoThumb, int order, long coinRate, int timeR, Object creTime, Object lasTime, Object finTime) {
+    public LikeCampaign(String key, String ownId, String userName, String videoId, String videoThumb, int order, long coinRate, int timeR, Object creTime, Object lasTime, Object finTime) {
         this.ownId = ownId;
         this.userName = userName;
         this.videoId = videoId;
@@ -84,13 +76,12 @@ public class LikeCampaign {
         this.finTime = finTime;
         this.order = order;
         this.coinRate = coinRate;
-        this.videoLink = videoLink;
         this.timeR = timeR;
 //        this.videoURL = videoURL;
         this.videoThumb = videoThumb;
 
         curLike = 0;
-        key = "wrongkey";
+        this.key = key;
         ip = true;
     }
 

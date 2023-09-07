@@ -8,9 +8,61 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:116681763681:android:7e2651d17e5f06caf8f320",
+        "mobilesdk_app_id": "1:116681763681:android:b334f54fcb2967b8f8f320",
         "android_client_info": {
           "package_name": "tikfans.tikplus"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "116681763681-k2ll2bnp3on471p6vt8col5i0u94lbi7.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "tikfans.tikplus",
+            "certificate_hash": "d5d56cf47f9c5282e52e1f3c58637fbd3760b4ae"
+          }
+        },
+        {
+          "client_id": "116681763681-qsljj70liiiujvr3gt082qv55qv612f1.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "tikfans.tikplus",
+            "certificate_hash": "52b7d764bd9da0f2cad5bc629ccc6fd1e053e55a"
+          }
+        },
+        {
+          "client_id": "116681763681-13mnfu1t16pjbi29740tffgbbaqpo3bd.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB-enkF0Q-o7oQ_s267tdTPtRc7YMGOvLM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "116681763681-13mnfu1t16pjbi29740tffgbbaqpo3bd.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "116681763681-5cnb1p7qcugn5c02n5qp66c2pj3dd75f.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "tikfans.tikplus.tikfollower"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:116681763681:android:7a16b0606e0be0cbf8f320",
+        "android_client_info": {
+          "package_name": "tikfans.tikplus.tikfans"
         }
       },
       "oauth_client": [
@@ -30,6 +82,13 @@
             {
               "client_id": "116681763681-13mnfu1t16pjbi29740tffgbbaqpo3bd.apps.googleusercontent.com",
               "client_type": 3
+            },
+            {
+              "client_id": "116681763681-5cnb1p7qcugn5c02n5qp66c2pj3dd75f.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "tikfans.tikplus.tikfollower"
+              }
             }
           ]
         }

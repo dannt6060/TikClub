@@ -49,7 +49,6 @@ import tikfans.tikplus.util.AppUtil;
 import tikfans.tikplus.util.CircleTransform;
 import tikfans.tikplus.util.CustomTextView;
 import tikfans.tikplus.util.FirebaseUtil;
-import tikfans.tikplus.util.PreferenceUtil;
 import tikfans.tikplus.util.RemoteConfigUtil;
 import tikfans.tikplus.model.ChienDichCuaNguoiDungHienTai;
 import tikfans.tikplus.model.SubCampaign;
@@ -77,7 +76,7 @@ public class SubTaoChienDichActivity extends AppCompatActivity implements View.O
 
     //unity
     private View rootView;
-    private String unityGameID = "3737693";
+    private String unityGameID = "5252996";
     private boolean testMode = false;
     private String placementId = "rewardedVideo";
 
@@ -216,8 +215,12 @@ public class SubTaoChienDichActivity extends AppCompatActivity implements View.O
         });
 
         mTxtUserName.setText("@" + mUserName);
-        Picasso.get().load(mUserImg).transform(new CircleTransform())
-                .into(mImageViewUserPhoto);
+        try {
+            Picasso.get().load(mUserImg).transform(new CircleTransform())
+                    .into(mImageViewUserPhoto);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
     }
 
@@ -298,15 +301,15 @@ public class SubTaoChienDichActivity extends AppCompatActivity implements View.O
             txtTitle.setText(getString(R.string.so_luong_sub));
             txtDetail.setText(getString(R.string.so_luong_sub_chi_tiet));
             numberPicker.setMinValue(1);
-            numberPicker.setMaxValue(19);
-            numberPicker.setDisplayedValues(new String[]{"10", "20", "30", "40", "50", "60", "70", "80", "90", "100", "200", "300", "400", "500", "600", "700", "800", "900", "1000"});
+            numberPicker.setMaxValue(20);
+            numberPicker.setDisplayedValues(new String[]{"10", "20", "30", "40", "50", "60", "70", "80", "90", "100", "200", "300", "400", "500", "600", "700", "800", "900", "1000", "5000"});
             numberPicker.setValue(mCurrentPosSubPicker);
         } else {
             txtTitle.setText(getString(R.string.thoi_gian_yeu_cau));
             txtDetail.setText(getString(R.string.thoi_gian_yeu_cau));
             numberPicker.setMinValue(1);
-            numberPicker.setMaxValue(19);
-            numberPicker.setDisplayedValues(new String[]{"5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23"});
+            numberPicker.setMaxValue(20);
+            numberPicker.setDisplayedValues(new String[]{"5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23","24"});
             numberPicker.setValue(mCurrentPosTimePicker);
         }
 
@@ -325,6 +328,9 @@ public class SubTaoChienDichActivity extends AppCompatActivity implements View.O
                         mNumberFollowOrder = (mCurrentPosSubPicker) * 10;
                     } else {
                         mNumberFollowOrder = (mCurrentPosSubPicker - 9) * 100;
+                    }
+                    if (mCurrentPosSubPicker == 20) {
+                        mNumberFollowOrder = 5000;
                     }
                 } else {
                     mCurrentPosTimePicker = numberPicker.getValue();
@@ -370,12 +376,15 @@ public class SubTaoChienDichActivity extends AppCompatActivity implements View.O
         final DatabaseReference campaignCurrentUserRef = FirebaseUtil.getCampaignCurrentUser();
         long coinRate = FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_SUB_CAMPAIGN_COIN_COST_KEY);
 
-        final SubCampaign campaign = new SubCampaign(user.getUid(), mUserName, mUserImg, mVideoId, mVideoWebLink, numberSubOrder, coinRate, mTimeRequired, ServerValue.TIMESTAMP, ServerValue.TIMESTAMP, -1);
-
         FirebaseUtil.getCoinCurrentAccountRef().addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
-                long currentSubCoin = (long) dataSnapshot.getValue();
+                long currentSubCoin = 0;
+                try {
+                    currentSubCoin = (long) dataSnapshot.getValue();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
                 if (currentSubCoin <= 0 || numberSubOrder < 5) {
                     hideProgressDialog();
                     Toast.makeText(getApplicationContext(), getString(R.string.not_enough_coin), Toast.LENGTH_SHORT).show();
@@ -391,6 +400,9 @@ public class SubTaoChienDichActivity extends AppCompatActivity implements View.O
                     return;
                 }
                 //create new campaign
+                String key = campaignsRef.push().getKey();
+                if (key == null || key.length()<=0) return;
+                final SubCampaign campaign = new SubCampaign(key, user.getUid(), mUserName, mUserImg, mVideoId, numberSubOrder, coinRate, mTimeRequired, ServerValue.TIMESTAMP, ServerValue.TIMESTAMP, -1);
                 campaignsRef.push().setValue(campaign, new DatabaseReference.CompletionListener() {
                     @Override
                     public void onComplete(DatabaseError error, final DatabaseReference firebase) {

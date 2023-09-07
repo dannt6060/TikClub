@@ -8,12 +8,8 @@ import android.database.sqlite.SQLiteOpenHelper;
 import android.util.Log;
 
 import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.List;
 
 import tikfans.tikplus.model.ItemVideo;
-
-import static java.sql.Types.BOOLEAN;
 
 public class SQLiteDatabaseHandler extends SQLiteOpenHelper {
 
@@ -104,7 +100,7 @@ public class SQLiteDatabaseHandler extends SQLiteOpenHelper {
                     itemVideo = new ItemVideo();
                     itemVideo.setId(cursor.getString(0));
                     itemVideo.setImageUrl(cursor.getString(1));
-                    itemVideo.setDiggCount(Integer.parseInt(cursor.getString(2)));
+                    itemVideo.setDiggCount(0);
                     itemVideo.setVideoUrl(cursor.getString(3));
                     itemVideo.setWebVideoUrl(cursor.getString(4));
                     itemVideoList.add(itemVideo);

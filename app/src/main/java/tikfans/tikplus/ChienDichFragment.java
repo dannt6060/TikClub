@@ -9,6 +9,7 @@ import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
+import android.util.Log;
 import android.util.Pair;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -26,6 +27,7 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.firebase.auth.FirebaseAuth;
@@ -58,7 +60,7 @@ import tikfans.tikplus.util.SecureDate;
  * Use the {@link ChienDichFragment#newInstance} factory method to
  * create an instance of this fragment.
  */
-public class ChienDichFragment extends Fragment {
+public class ChienDichFragment extends Fragment implements SwipeRefreshLayout.OnRefreshListener {
     // TODO: Rename parameter arguments, choose names that match
     // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
     private static final String ARG_PARAM1 = "param1";
@@ -76,6 +78,7 @@ public class ChienDichFragment extends Fragment {
     private ArrayList<String> mSubRunningCampaignList;
     private ArrayList<String> mLikeRunningCampaignList;
     private boolean isLoadedCampaign = false;
+    SwipeRefreshLayout mSwipeRefreshLayout;
 
 
     public ChienDichFragment() {
@@ -108,6 +111,25 @@ public class ChienDichFragment extends Fragment {
             mParam2 = getArguments().getString(ARG_PARAM2);
         }
     }
+
+    @Override
+    public void
+    onRefresh() {
+        Log.d("khang", " onRefresh");
+        if (System.currentTimeMillis() - lastRefreshTime < 10 * 1000) {
+            mSwipeRefreshLayout.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    mSwipeRefreshLayout.setRefreshing(false);
+                }
+            }, 1000);
+            return;
+        }
+        lastRefreshTime = System.currentTimeMillis();
+        queryDatabase();
+    }
+
+    private long lastRefreshTime = 0;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
@@ -154,6 +176,28 @@ public class ChienDichFragment extends Fragment {
 
         mSubRunningCampaignList = new ArrayList<>();
         mLikeRunningCampaignList = new ArrayList<>();
+
+        mSwipeRefreshLayout = (SwipeRefreshLayout) rootView.findViewById(R.id.swipe_container);
+        mSwipeRefreshLayout.setOnRefreshListener(this);
+        mSwipeRefreshLayout.setColorSchemeResources(R.color.colorPrimary,
+                android.R.color.holo_green_dark,
+                android.R.color.holo_orange_dark,
+                android.R.color.holo_blue_dark);
+
+        /**
+         * Showing Swipe Refresh animation on activity create
+         * As animation won't start on onCreate, post runnable is used
+         */
+        mSwipeRefreshLayout.post(new Runnable() {
+
+            @Override
+            public void run() {
+
+                mSwipeRefreshLayout.setRefreshing(true);
+
+                // Fetching data from server
+            }
+        });
 
         queryDatabase();
 
@@ -272,6 +316,13 @@ public class ChienDichFragment extends Fragment {
                         }
                         hideProgressDialog();
 
+                        mSwipeRefreshLayout.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                mSwipeRefreshLayout.setRefreshing(false);
+                            }
+                        });
+
                         new Handler().postDelayed(new Runnable() {
                             @Override
                             public void run() {
@@ -305,7 +356,9 @@ public class ChienDichFragment extends Fragment {
                 mLikeRunningCampaignList.add(likeCampaign.getVideoId());
             }
             String img_url = likeCampaign.getVideoThumb();
-            holder.setCampaignIcon(img_url, 3, getContext());
+            if (img_url != null ) {
+                holder.setCampaignIcon(img_url, 3, getContext());
+            }
 //            holder.setCampaignVideoTitle(likeCampaign.getVideoTitle());
             holder.setProgressInfo(likeCampaign.getCurLike(), likeCampaign.getOrder(), 3);
             if (likeCampaign.isIp() && currentTime - (long) likeCampaign.getLasTime() < 24*60*60*1000) {

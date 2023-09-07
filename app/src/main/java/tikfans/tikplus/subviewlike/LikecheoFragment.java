@@ -1,18 +1,17 @@
 package tikfans.tikplus.subviewlike;
 
 import java.io.IOException;
-import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.List;
-import java.util.Objects;
 import java.util.Random;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.regex.Pattern;
 
 import android.annotation.SuppressLint;
-import android.app.Activity;
 import android.app.ProgressDialog;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
@@ -24,6 +23,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.os.Handler;
+import android.os.Looper;
 import android.provider.Settings;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -53,6 +53,7 @@ import com.google.api.services.youtube.YouTube;
 import com.google.api.services.youtube.model.VideoGetRatingResponse;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.crashlytics.FirebaseCrashlytics;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -70,13 +71,9 @@ import com.unity3d.ads.UnityAds;
 import com.unity3d.ads.UnityAdsShowOptions;
 import com.unity3d.services.banners.BannerErrorInfo;
 import com.unity3d.services.banners.BannerView;
-import com.unity3d.services.banners.IUnityBannerListener;
 import com.unity3d.services.banners.UnityBannerSize;
-import com.unity3d.services.banners.UnityBanners;
 
 
-import tikfans.tikplus.BuildConfig;
-import tikfans.tikplus.ItemURLTiktok;
 import tikfans.tikplus.MyChannelApplication;
 import tikfans.tikplus.R;
 import tikfans.tikplus.TiktokWebClient;
@@ -85,8 +82,6 @@ import tikfans.tikplus.model.ItemVideo;
 import tikfans.tikplus.model.LikeCampaign;
 import tikfans.tikplus.model.LogAdsReward;
 import tikfans.tikplus.model.LogLike;
-import tikfans.tikplus.model.ResultUser;
-import tikfans.tikplus.model.ResultVideo;
 import tikfans.tikplus.service.DemNguocThoiGianServices;
 import tikfans.tikplus.util.AppUtil;
 import tikfans.tikplus.util.CircleTransform;
@@ -97,9 +92,16 @@ import tikfans.tikplus.util.SecureDate;
 
 import static android.app.Activity.RESULT_OK;
 import static com.unity3d.scar.adapter.common.Utils.runOnUiThread;
+import static tikfans.tikplus.MyChannelApplication.countToday;
+import static tikfans.tikplus.MyChannelApplication.savedCountToday;
 import static tikfans.tikplus.util.AppUtil.LIKE_CAMPAIGN_TYPE;
+import static tikfans.tikplus.util.AppUtil.convertStringToInteger;
+import static tikfans.tikplus.util.AppUtil.getVideoURL;
 import static tikfans.tikplus.util.FirebaseUtil.CAMPAIGN_LAST_CHANGE_TIME_STAMP;
+import static tikfans.tikplus.util.FirebaseUtil.getLikeCampaignsRef;
 
+import org.json.JSONObject;
+import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
@@ -152,13 +154,12 @@ public class LikecheoFragment extends Fragment
     private String myUserName;
     private long mLastTimeQuery = 0;
     private boolean isGotAllSubscribedList = false;
-    private CountToday likeCountToday;
     private ProgressDialog dummyCheckingSubscriberDialog;
     private Long mGotoYouTubeTime = 0L;
 
     //unity
     private View rootView;
-    private String unityGameID = "3737693";
+    private String unityGameID = "5252996";
     private boolean testMode = false;
     private String placementId = "rewardedVideo";
     private View bannerView;
@@ -220,7 +221,8 @@ public class LikecheoFragment extends Fragment
         }
     };
     boolean isUnityAdsLoaded = false;
-    public void DisplayRewardedAd () {
+
+    public void DisplayRewardedAd() {
         if (isUnityAdsLoaded) {
             UnityAds.show(getActivity(), placementId, new UnityAdsShowOptions(), showListener);
         } else {
@@ -309,11 +311,6 @@ public class LikecheoFragment extends Fragment
         mBtnEarnCoinNoChannel = rootView.findViewById(R.id.btn_earn_coin_no_channel);
         mBtnReload = rootView.findViewById(R.id.btn_reload);
 
-        //for checking follow
-        mWebView = rootView.findViewById(R.id.webView);
-        mWebView.setVisibility(View.INVISIBLE);
-        tiktokWebClient = new TiktokWebClient(getContext(), mWebView);
-
         mAdView = rootView.findViewById(R.id.adView);
         AdRequest adRequest = new AdRequest.Builder().build();
 
@@ -366,28 +363,48 @@ public class LikecheoFragment extends Fragment
 
 
     private void getTodayLikeCount() {
-        likeCountToday = new CountToday();
-        FirebaseUtil.getLikedTodayRef().addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
-                if (dataSnapshot.exists()) {
-                    likeCountToday = dataSnapshot.getValue(CountToday.class);
-                    Date date = SecureDate.getInstance().getDate();
-                    DateFormat df;
-                    df = new SimpleDateFormat(AppUtil.FORMAT_DATE);
-                    String today = df.format(date);
-                    if (!likeCountToday.getToday().equals(today)) {
-                        likeCountToday.setToday(today);
-                        likeCountToday.setCount(0);
+        if (FirebaseUtil.getCountTodayRef() == null) {
+            return;
+        }
+        if (countToday == null) {
+            FirebaseUtil.getCountTodayRef().addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override
+                public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                    if (dataSnapshot.exists()) {
+                        countToday = dataSnapshot.getValue(CountToday.class);
+                        if (SecureDate.getInstance().getDate().getTime() - (Long) countToday.getTime() > 20 * 60 * 60 * 1000) {
+                            countToday = new CountToday(0, 0, SecureDate.getInstance().getDate().getTime(), 0L);
+                            Log.d("khang", "refresh countToday: " + countToday);
+                        }
+                    } else {
+                        countToday = new CountToday(0, 0, 0L, 0L);
                     }
+//                    if (savedCountToday != null) {
+//                        Log.d("khang", "check savedCountToday: " + savedCountToday + " / countToday: " + countToday);
+//                        countToday.setLike(Math.max(countToday.like, savedCountToday.getLike()));
+//                        countToday.setSub(Math.max(countToday.getSub(), savedCountToday.getSub()));
+//                        Log.d("khang", "updated CountToday: " + countToday);
+//                        savedCountToday = null;
+//                    }
+                    getAllLikedList();
                 }
-            }
 
-            @Override
-            public void onCancelled(@NonNull DatabaseError databaseError) {
-
-            }
-        });
+                @Override
+                public void onCancelled(@NonNull DatabaseError databaseError) {
+                    countToday = new CountToday(0, 0, 0L, 0L);
+//                    if (savedCountToday != null) {
+//                        Log.d("khang", "check savedCountToday: " + savedCountToday + " / countToday: " + countToday);
+//                        countToday.setLike(Math.max(countToday.like, savedCountToday.getLike()));
+//                        countToday.setSub(Math.max(countToday.getSub(), savedCountToday.getSub()));
+//                        Log.d("khang", "updated CountToday: " + countToday);
+//                        savedCountToday = null;
+//                    }
+                    getAllLikedList();
+                }
+            });
+        } else {
+            getAllLikedList();
+        }
     }
 
     @Override
@@ -396,52 +413,50 @@ public class LikecheoFragment extends Fragment
     }
 
     // for checking follow
-    private WebView mWebView;
-    private TiktokWebClient tiktokWebClient;
     private String myFollowingByWebView = "0";
     private String myOldFollowingByWebView = "0";
     private String mUserLink;
     private ProgressDialog checkingFollowDialog;
+    private int getDataFailedCount = 0;
 
+    //webview did not work for get like count
     private void getVideoInfoByWebView(boolean isNeedCheckFollow) {
         if (mLikeCampaign == null) return;
-        final boolean[] isLoaded = {false}; // haom onloadFinish bi goi 2 lan, chi xu ly o lan goi dau tien
         try {
-            if (checkingFollowDialog != null && !checkingFollowDialog.isShowing()) {
+            if (checkingFollowDialog != null && !checkingFollowDialog.isShowing() && isNeedCheckFollow) {
                 checkingFollowDialog.show();
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
-        String videoURL = AppUtil.getVideoURL(mLikeCampaign.getVideoId());
-        ItemURLTiktok url = new ItemURLTiktok(videoURL, null);
-        Log.e("khangcheckfollow", "getUserInfoByWebView: user link " + url.getBaseUrl());
-        tiktokWebClient.load(url.getBaseUrl());
-        tiktokWebClient.setListener(new TiktokWebClient.ClientListener() {
+        if (mLikeCampaign.getUserName() == null) {
+            if (isNeedCheckFollow) {
+                ratingResultLiked();
+            }
+            return;
+        }
+
+        String videoLink = getVideoURL(mLikeCampaign.getVideoId());
+        //newGetData
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        long beginTime = System.currentTimeMillis();
+        Handler handler = new Handler(Looper.getMainLooper());
+
+        executor.execute(new Runnable() {
             @Override
-            public void onLoading() {
-                Log.e("khang", "onLoading: ");
+            public void run() {
+                //Background work here
+                Document document = null;
+                HashMap<String, String> map = new HashMap<>();
+                map.put("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36");
+                map.put("Accept","text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7");
                 try {
-                    if (checkingFollowDialog != null) {
-                        if (isNeedCheckFollow) {
-                            checkingFollowDialog.setCancelable(false);
-                            checkingFollowDialog.setTitle(getString(R.string.like_to_video));
-                            checkingFollowDialog.setMessage(getString(R.string.like_to_video_message));
-                        } else {
-                            checkingFollowDialog.setCancelable(true);
-                            checkingFollowDialog.setTitle("checkingfollowdialog");
-                            checkingFollowDialog.setMessage("");
-                        }
-                        checkingFollowDialog.show();
-                    }
-                } catch (Exception e) {
+                    document = Jsoup.connect(videoLink).headers(map).timeout(10000).get();
+                } catch (IOException e) {
                     e.printStackTrace();
                 }
-            }
-
-            @Override
-            public void onLoadFinish(Document document, String url) {
-                runOnUiThread(new Runnable() {
+                Document finalDocument = document;
+                handler.post(new Runnable() {
                     @Override
                     public void run() {
                         try {
@@ -451,33 +466,31 @@ public class LikecheoFragment extends Fragment
                         } catch (Exception e) {
                             e.printStackTrace();
                         }
-                        if (isLoaded[0]) return;
-                        isLoaded[0] = true;
-                        Log.e("khangcheckfollow", "getUserInfoByWebView onLoadFinish: " + url);
-                        //for update video thumbnail;
-                        if (mLikeCampaign != null) {
+                        if (mLikeCampaign != null && !isNeedCheckFollow) {
                             String img = mLikeCampaign.getVideoThumb();
-                            String expiredTime = img.substring(img.lastIndexOf("expires=") + 8, img.lastIndexOf("expires=") + 18);
+                            String expiredTime = "0";
+                            if (img != null && img.length() > 50) {
+                                expiredTime = img.substring(img.lastIndexOf("expires=") + 8, img.lastIndexOf("expires=") + 18);
+                            }
                             Log.d("khangcheckfollow", "expiredTime: " + expiredTime + " / " + System.currentTimeMillis());
 
-                            long l = Long.parseLong(expiredTime);
+                            long l = 0;
+                            try {
+                                l = Long.parseLong(expiredTime);
+                            } catch (Exception e) {
+                                FirebaseCrashlytics.getInstance().recordException(e);
+                            }
                             if (l < System.currentTimeMillis() / 1000) {
-                                Log.d("khang", "checkby webview da het han" + expiredTime);
+                                Log.d("khang", "video image da het han" + expiredTime);
                                 try {
-                                    String imageUrl = "";
-                                    Elements findImgUrlElementList = document.getElementsByTag("meta");
-                                    for (Element e:findImgUrlElementList) {
-                                        String content = e.attributes().get("content");
-                                        if (content.contains("expires=")) {
-                                            imageUrl = content;
-                                            break;
-                                        }
-                                    }
+                                    String imageUrl = new JSONObject(finalDocument.getElementById("SIGI_STATE").data()).getJSONObject("ItemModule").getJSONObject(mLikeCampaign.getVideoId()).getJSONObject("video").get("cover").toString();
 
-                                    Log.d("khang", "video thumbnailUrl: " + imageUrl);
+                                    Log.d("khang", "update video thumbnail: " + mLikeCampaign.getVideoId() + " / " + imageUrl);
                                     if (mLikeCampaign != null && imageUrl.length() > 0) {
+                                        mLikeCampaign.setVideoThumb(imageUrl);
                                         String finalImageUrl = imageUrl;
                                         mVideoThumb.post(new Runnable() {
+                                            @SuppressLint("UseCompatLoadingForDrawables")
                                             @Override
                                             public void run() {
                                                 try {
@@ -488,70 +501,47 @@ public class LikecheoFragment extends Fragment
                                                 }
                                             }
                                         });
-                                        final DatabaseReference campaignCurrentRef = FirebaseUtil.getLikeCampaignsRef().child(mLikeCampaign.getKey());
-                                        campaignCurrentRef.runTransaction(new Transaction.Handler() {
-                                            @NonNull
-                                            @Override
-                                            public Transaction.Result doTransaction(@NonNull MutableData mutableData) {
-                                                LikeCampaign currentCampaign = mutableData.getValue(LikeCampaign.class);
-                                                if (currentCampaign == null) {
-                                                    return Transaction.success(mutableData);
-                                                }
-
-                                                currentCampaign.setVideoThumb(finalImageUrl);
-
-                                                // Set value and report transaction success
-                                                mutableData.setValue(currentCampaign);
-                                                return Transaction.success(mutableData);
-                                            }
-
-                                            @Override
-                                            public void onComplete(@Nullable DatabaseError databaseError, boolean b, @Nullable DataSnapshot dataSnapshot) {
-
-                                            }
-                                        });
+                                        final DatabaseReference campaignCurrentVideoThumbRef = getLikeCampaignsRef().child(mLikeCampaign.getKey()).child("videoThumb");
+                                        campaignCurrentVideoThumbRef.setValue(finalImageUrl);
                                     }
                                 } catch (Exception e) {
-                                    Log.d("khang", "webview get imageUrl error: " + e.getMessage());
-                                    e.printStackTrace();
+                                    FirebaseCrashlytics.getInstance().recordException(e);
                                 }
-                            } else {
-                                Log.d("khang", "checkby webview chua het han" + expiredTime);
-                            }
-                        }
 
-                        if (url.contains("notfound")) { //block ip from india so url is notfound
-                            Log.d("khangcheckfollow", "webview: load faild caused by block ip");
-                            if (isNeedCheckFollow) {
-                                myFollowingByWebView = "-1"; // bang 0 mac dich la da tha tim
-                                checkFollow();
-                                myOldFollowingByWebView = "-1";
                             } else {
-                                myFollowingByWebView = "-1"; // bang 0 mac dich la da tha tim
-                                myOldFollowingByWebView = "-1";
+                                Log.d("khang", "video image chua het han" + expiredTime);
                             }
-                            return;
                         }
 
                         String likeCount = "-1";
                         try {
-                            likeCount = document.getElementsByClass("tiktok-pfkbd6-SpanText e1o5bxur3").get(0).text();
+                            likeCount = new JSONObject(finalDocument.getElementById("SIGI_STATE").data()).getJSONObject("ItemModule").getJSONObject(mLikeCampaign.getVideoId()).getJSONObject("stats").get("diggCount").toString();
+                            Log.e("khangcheckfollow", " heartCount: " + likeCount);
                         } catch (Exception e) {
                             Log.d("khang", "webview get get Likecount error: " + e.getMessage());
                             likeCount = "-1";
                             e.printStackTrace();
                         }
-                        Log.e("khangcheckfollow", "getUserInfoByWebView likeCount: " + likeCount);
-                        if (isNeedCheckFollow) {
-                            myFollowingByWebView = likeCount;
-                            checkFollow();
-                            myOldFollowingByWebView = likeCount;
-                        } else {
-                            myOldFollowingByWebView = likeCount;
 
-                            myFollowingByWebView = likeCount;
+                        if (likeCount.equals("-1") && getDataFailedCount < 3) {
+                            getDataFailedCount++;
+                            Log.d("khang", "getDataFailedCount: " + getDataFailedCount);
+                            getVideoInfoByWebView(isNeedCheckFollow);
+                        } else {
+                            getDataFailedCount = 0;
+                            Log.e("khangcheckfollow", "getUserInfoByWebView likeCount: " + likeCount);
+                            if (isNeedCheckFollow) {
+                                myFollowingByWebView = likeCount;
+                                checkFollow();
+                                //myOldFollowingByWebView = likeCount;
+                            } else {
+                                myOldFollowingByWebView = likeCount;
+                                myFollowingByWebView = likeCount;
+
+                            }
                         }
-                        mWebView.setVisibility(View.INVISIBLE);
+                        //UI Thread work here
+                        Log.d("khang", "loadingTime: " + (System.currentTimeMillis() - beginTime));
                     }
                 });
             }
@@ -568,13 +558,13 @@ public class LikecheoFragment extends Fragment
             if (newFl > oldFl || newFl == -1) {// da follow
                 ratingResultLiked();
             } else {// chua follow
-                PreferenceUtil.saveBooleanPref(PreferenceUtil.FORCE_CHECK_SUB, true);
-                String title, message, positiveButton;
-                title = getString(R.string.chua_thich);
-                message = getString(R.string.chua_thich_chi_tiet);
-                positiveButton = getString(R.string.thich_lai);
-
                 try {
+                    PreferenceUtil.saveBooleanPref(PreferenceUtil.FORCE_CHECK_SUB, true);
+                    String title, message, positiveButton;
+                    title = getString(R.string.chua_thich);
+                    message = getString(R.string.chua_thich_chi_tiet);
+                    positiveButton = getString(R.string.thich_lai);
+
                     AlertDialog alertDialog = new AlertDialog.Builder(mContext)
                             .setTitle(title)
                             .setMessage(message)
@@ -587,7 +577,7 @@ public class LikecheoFragment extends Fragment
                             }).setNegativeButton(getString(R.string.xem_cai_khac), new DialogInterface.OnClickListener() {
                                 @Override
                                 public void onClick(DialogInterface dialog, int which) {
-                                    if (SecureDate.getInstance().getDate().getTime() - (long) mLikeCampaign.getCreTime() > (long) 15 * 24 * 60 * 60 * 1000) {
+                                    if (mLikeCampaign != null && SecureDate.getInstance().getDate().getTime() - (long) mLikeCampaign.getCreTime() > (long) 15 * 24 * 60 * 60 * 1000) {
                                         skipNotFoundCampaign(mLikeCampaign);
                                     }
                                     queryDatabase();
@@ -637,7 +627,7 @@ public class LikecheoFragment extends Fragment
                             @Override
                             public void onClick(DialogInterface dialog, int which) {
                                 dialog.dismiss();
-                                if (SecureDate.getInstance().getDate().getTime() - (long) mLikeCampaign.getCreTime() > (long) 15 * 24 * 60 * 60 * 1000) {
+                                if (mLikeCampaign != null && SecureDate.getInstance().getDate().getTime() - (long) mLikeCampaign.getCreTime() > (long) 15 * 24 * 60 * 60 * 1000) {
                                     skipNotFoundCampaign(mLikeCampaign);
                                 }
                                 queryDatabase();
@@ -649,9 +639,10 @@ public class LikecheoFragment extends Fragment
                 new Handler().postDelayed(new Runnable() {
                     @Override
                     public void run() {
+                        //webview did not work
                         getVideoInfoByWebView(true);
                     }
-                }, 1000);
+                }, 100);
             }
         }
 
@@ -664,7 +655,7 @@ public class LikecheoFragment extends Fragment
     private void skipNotFoundCampaign(LikeCampaign likeCampaign) {
         Log.d("khang", "khong tim thay video");
         //to campaign
-        DatabaseReference currentCampaignRef = FirebaseUtil.getLikeCampaignsRef().child(likeCampaign.getKey());
+        DatabaseReference currentCampaignRef = getLikeCampaignsRef().child(likeCampaign.getKey());
         currentCampaignRef.runTransaction(new Transaction.Handler() {
             @Override
             public Transaction.Result doTransaction(MutableData mutableData) {
@@ -1038,129 +1029,8 @@ public class LikecheoFragment extends Fragment
 
         //check tha tim bang webview
         getVideoInfoByWebView(false);
-        if (mLikeCampaign.getUserName() != null) {
-            if (mLikeCampaign.getVideoThumb() != null && !mLikeCampaign.getVideoThumb().equals("") && !mLikeCampaign.getVideoThumb().equals("NONE")) {
-               try {
-                   Picasso.get().load(mLikeCampaign.getVideoThumb()).error(requireActivity().getDrawable(R.drawable.play)).transform(new CircleTransform())
-                           .into(mVideoThumb);
-               } catch (Exception e) {
-                   e.printStackTrace();
-               }
-                String img = mLikeCampaign.getVideoThumb();
-                try {
-                    String expiredTime = img.substring(img.lastIndexOf("expires=") + 8, img.lastIndexOf("expires=") + 18);
-                    Log.d("khang", "expiredTime: " + expiredTime + " / " + System.currentTimeMillis());
-
-                    long l = Long.parseLong(expiredTime);
-                    if (l < System.currentTimeMillis() / 1000) {
-                        Log.d("khang", "da het han" + expiredTime);
-                        String link = AppUtil.TIKTOK_PREFIX_LINK + mLikeCampaign.getUserName();
-                        ItemURLTiktok url = new ItemURLTiktok(link, listener);
-                        url.getListVideoFromUser();
-                    } else {
-                        Log.d("khang", "chua het han" + expiredTime);
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            } else {
-                String link = AppUtil.TIKTOK_PREFIX_LINK + mLikeCampaign.getUserName();
-                ItemURLTiktok url = new ItemURLTiktok(link, listener);
-                url.getListVideoFromUser();
-            }
-        } else {
-            Log.d("khang", "mUserName is null");
-            final DatabaseReference mUserNameRef = FirebaseUtil.getUserNameRef(mLikeCampaign.ownId);
-            mUserNameRef.addListenerForSingleValueEvent(new ValueEventListener() {
-                @Override
-                public void onDataChange(@NonNull DataSnapshot snapshot) {
-                    if (snapshot.exists()) {
-                        String link = AppUtil.TIKTOK_PREFIX_LINK + snapshot.getValue(String.class);
-                        ItemURLTiktok url = new ItemURLTiktok(link, listener);
-                        url.getListVideoFromUser();
-                    }
-                }
-
-                @Override
-                public void onCancelled(@NonNull DatabaseError error) {
-
-                }
-            });
-
-        }
     }
 
-    ItemURLTiktok.ClientTikTokListener listener = new ItemURLTiktok.ClientTikTokListener() {
-        @Override
-        public void onLoading() {
-        }
-
-        @Override
-        public void onReceivedListVideo(ResultVideo result) {
-            List<ItemVideo> itemVideoList = result.getResult();
-            if (itemVideoList != null && itemVideoList.size() > 0) {
-                for (int i = 0; i < itemVideoList.size(); i++) {
-                    ItemVideo itemVideo = itemVideoList.get(i);
-
-                    if (mLikeCampaign != null && mLikeCampaign.getVideoId() != null && mLikeCampaign.getVideoId().equals(itemVideo.getId())) {
-                        String img = itemVideo.getImageUrl();
-                        if (img != null) {
-                            try {
-                                Picasso.get().load(img).transform(new CircleTransform()).error(requireActivity().getDrawable(R.drawable.play))
-                                        .into(mVideoThumb);
-                            } catch (Exception e) {
-                                e.printStackTrace();
-                            }
-                            final DatabaseReference campaignCurrentRef = FirebaseUtil.getLikeCampaignsRef().child(mLikeCampaign.getKey());
-                            campaignCurrentRef.runTransaction(new Transaction.Handler() {
-                                @NonNull
-                                @Override
-                                public Transaction.Result doTransaction(@NonNull MutableData mutableData) {
-                                    LikeCampaign currentCampaign = mutableData.getValue(LikeCampaign.class);
-                                    if (currentCampaign == null) {
-                                        return Transaction.success(mutableData);
-                                    }
-
-                                    currentCampaign.setVideoThumb(img);
-
-                                    // Set value and report transaction success
-                                    mutableData.setValue(currentCampaign);
-                                    return Transaction.success(mutableData);
-                                }
-
-                                @Override
-                                public void onComplete(@Nullable DatabaseError databaseError, boolean b, @Nullable DataSnapshot dataSnapshot) {
-
-                                }
-                            });
-                        }
-                    }
-                }
-            }
-        }
-
-        @Override
-        public void onReceivedUserInfo(final ResultUser result) {
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                }
-            });
-        }
-
-        @Override
-        public void onError(int code, String mess) {
-            Log.d("khangcheckfollow", "get video by api error: " + mess);
-        }
-
-        @Override
-        public void onInvalidLink() {
-        }
-
-        @Override
-        public void onCheckLinkDone() {
-        }
-    };
 
     private void initTimer() {
         Long prefTime = PreferenceUtil.getLongPref(PreferenceUtil.TIME_COUNTER_LIKED, 0);
@@ -1181,7 +1051,7 @@ public class LikecheoFragment extends Fragment
                             mInstructionLayout.setVisibility(View.VISIBLE);
                             Random r = new Random();
                             int i1 = r.nextInt(99);
-                            if (i1 < 50 && !MyChannelApplication.isVipAccount && likeCountToday != null && likeCountToday.getCount() > 2) {
+                            if (i1 < 75 && !MyChannelApplication.isVipAccount && countToday != null && countToday.getLike() > 1) {
                                 showAds();
                             }
                             PreferenceUtil.saveLongPref(PreferenceUtil.TIME_COUNTER_LIKED, 0);
@@ -1220,6 +1090,10 @@ public class LikecheoFragment extends Fragment
     private long lastQueryTime = 0;
 
     private void queryDatabase() {
+        if (countToday == null) {
+            getTodayLikeCount();
+            return;
+        }
         if (System.currentTimeMillis() - lastQueryTime < 1000) {
             Log.d("Khang", "query too fast");
             return;
@@ -1229,8 +1103,8 @@ public class LikecheoFragment extends Fragment
         if (MyChannelApplication.isVipAccount) {
             limitLike = limitLike + 10;
         }
-        Log.d("Khang", "Sub Today: " + likeCountToday.getCount() + " / " + limitLike);
-        if (likeCountToday != null && likeCountToday.getCount() <= limitLike) {
+        Log.d("Khang", "Sub Today: " + countToday.getLike() + " / " + limitLike);
+        if (countToday != null && countToday.getLike() <= limitLike) {
             if (isGotAllSubscribedList) {
                 mLikeCampaign = null;
                 numberQueryFail = 0;
@@ -1239,12 +1113,13 @@ public class LikecheoFragment extends Fragment
                 getAllLikedList();
             }
         } else {
-            Log.d("Khang", "Reached Limit Sub Today: " + likeCountToday.getCount());
+            Log.d("Khang", "Reached Limit Sub Today: " + countToday.getLike());
             mLikeCampaign = null;
             mNoPageLayout.setVisibility(View.VISIBLE);
             mPageContentLayout.setVisibility(View.INVISIBLE);
             mTxtChannel.setText(getString(R.string.gioi_han_luot_thich));
-            mTxtChannelExtra.setText(String.format(getString(R.string.gioi_han_luot_thich_chi_tiet), likeCountToday.getCount()));
+            mTxtChannelExtra.setText(String.format(getString(R.string.gioi_han_luot_thich_chi_tiet), countToday
+                    .getLike()));
         }
     }
 
@@ -1269,10 +1144,11 @@ public class LikecheoFragment extends Fragment
             return;
         }
         mLastTimeQuery = SecureDate.getInstance().getDate().getTime();
-        Query query = FirebaseUtil.getLikeCampaignsRef().orderByChild(CAMPAIGN_LAST_CHANGE_TIME_STAMP)
+        Query query = getLikeCampaignsRef().orderByChild(CAMPAIGN_LAST_CHANGE_TIME_STAMP)
                 .limitToFirst(1);
         //        Query query = FirebaseUtil.getCampaignsRef().child("inProgess").equalTo(true);
         query.addListenerForSingleValueEvent(new ValueEventListener() {
+            @SuppressLint("SimpleDateFormat")
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
                 if (dataSnapshot.exists()) {
@@ -1289,21 +1165,14 @@ public class LikecheoFragment extends Fragment
                             Log.d("Khang", "querry: key:" + campaignDataSnapshot.getRef() + " /cursub: " + tmpLikeCampaigns.getCurLike() + " /oder" + tmpLikeCampaigns.getOrder() + " /ownID: " + tmpLikeCampaigns.getOwnId());
 
 
-                            //kiem tra key, neu key sai phai set lai key
-                            if (tmpLikeCampaigns.getKey() != null && !tmpLikeCampaigns.getKey().equals(campaignDataSnapshot.getKey())) {
-                                tmpLikeCampaigns.setKey(campaignDataSnapshot.getKey());
-                                tmpLikeCampaigns.setLasTime(ServerValue.TIMESTAMP);
-                                final DatabaseReference campaignCurrentRef = FirebaseUtil.getLikeCampaignsRef().child(tmpLikeCampaigns.getKey());
-                                campaignCurrentRef.setValue(tmpLikeCampaigns);
-                            }
-
                             //chien dich qua lau khong hoan thanh, xoa
                             SimpleDateFormat sfd;
                             sfd = new SimpleDateFormat(mContext.getResources().getString(R
                                     .string.simple_date_format));
                             Log.d("Khang", "CreateTime: " + sfd.format(new Date
                                     ((long) tmpLikeCampaigns.getCreTime())));
-                            if (SecureDate.getInstance().getDate().getTime() - (long) tmpLikeCampaigns.getCreTime() > 90L * 24 * 60 * 60 * 1000) {
+                            boolean isDeleteLongCampaign = tmpLikeCampaigns.getOrder() > 1000 && SecureDate.getInstance().getDate().getTime() - (long) tmpLikeCampaigns.getCreTime() > 180L * 24 * 60 * 60 * 1000 || tmpLikeCampaigns.getOrder() <= 1000 && SecureDate.getInstance().getDate().getTime() - (long) tmpLikeCampaigns.getCreTime() > 90L * 24 * 60 * 60 * 1000;
+                            if (tmpLikeCampaigns.getKey() != null && !tmpLikeCampaigns.getKey().equals(campaignDataSnapshot.getKey()) || isDeleteLongCampaign) {
                                 Log.d("khang2", "querry delete too long time campaign: key:" + campaignDataSnapshot.getRef() + " /cursub: " + tmpLikeCampaigns.getCurLike() + "/" + tmpLikeCampaigns.getOrder() + " TimeR: " + tmpLikeCampaigns.getTimeR() + " /ownID: " + tmpLikeCampaigns.getOwnId());
                                 sfd = new SimpleDateFormat(mContext.getResources().getString(R
                                         .string.simple_date_format));
@@ -1328,12 +1197,12 @@ public class LikecheoFragment extends Fragment
                             } else {
 
                                 //chien dich da hoan thanh, hoac da dang ky kenh, query lai database
-                                if (!tmpLikeCampaigns.isIp()) {
+                                final DatabaseReference lasTimeRef = getLikeCampaignsRef().child(tmpLikeCampaigns.getKey()).child("lasTime");
+                                if (!tmpLikeCampaigns.isIp() || tmpLikeCampaigns.getCurLike() >= tmpLikeCampaigns.getOrder()) {
+                                    Log.d("khang", "querryCampaigns: campaign is completed");
                                     Long lastTimeStamp = (Long) tmpLikeCampaigns.getLasTime();
                                     if (lastTimeStamp < Long.MAX_VALUE) {
-                                        final DatabaseReference campaignCurrentRef = FirebaseUtil.getLikeCampaignsRef().child(tmpLikeCampaigns.getKey());
-                                        tmpLikeCampaigns.setLasTime(Long.MAX_VALUE);
-                                        campaignCurrentRef.setValue(tmpLikeCampaigns);
+                                        lasTimeRef.setValue(Long.MAX_VALUE);
                                     }
                                     numberQueryFail = MAX_QUERRY_FAIL;
                                     retryQueryWithDelay();
@@ -1341,9 +1210,7 @@ public class LikecheoFragment extends Fragment
                                 }
 
                                 //update timestamp, query success
-                                final DatabaseReference campaignCurrentRef = FirebaseUtil.getLikeCampaignsRef().child(tmpLikeCampaigns.getKey());
-                                tmpLikeCampaigns.setLasTime(ServerValue.TIMESTAMP);
-                                campaignCurrentRef.setValue(tmpLikeCampaigns);
+                                lasTimeRef.setValue(ServerValue.TIMESTAMP);
 
                                 if (!isLiked(tmpLikeCampaigns.getVideoId())) {
                                     mLikeCampaign = tmpLikeCampaigns;
@@ -1468,14 +1335,12 @@ public class LikecheoFragment extends Fragment
     }
 
 
-
     private void onRewarded() {
         if (getContext() != null) {
             Toast.makeText(getContext(), String.format(getString(R.string.nhan_duoc_coin), FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_VIDEO_REWARD)), Toast.LENGTH_SHORT).show();
         }
         FirebaseUtil.getLogAdsRewardCurrentUserRef().push().setValue(new LogAdsReward(FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_VIDEO_REWARD), ServerValue.TIMESTAMP));
     }
-
 
 
     /**
@@ -1711,31 +1576,37 @@ public class LikecheoFragment extends Fragment
         if (likeCampaign.getKey().equals("wrongkey")) return;
 
         //to campaign
-        DatabaseReference currentCampaignRef = FirebaseUtil.getLikeCampaignsRef().child(likeCampaign.getKey());
-        currentCampaignRef.runTransaction(new Transaction.Handler() {
+        DatabaseReference lasTimeRef = getLikeCampaignsRef().child(likeCampaign.getKey()).child("lasTime");
+        DatabaseReference finTimeRef = getLikeCampaignsRef().child(likeCampaign.getKey()).child("finTime");
+        DatabaseReference ipRef = getLikeCampaignsRef().child(likeCampaign.getKey()).child("ip");
+        DatabaseReference curLikeRef = getLikeCampaignsRef().child(likeCampaign.getKey()).child("curLike");
+        int order = likeCampaign.getOrder();
+        curLikeRef.runTransaction(new Transaction.Handler() {
             @Override
             public Transaction.Result doTransaction(MutableData mutableData) {
-                LikeCampaign currentCampaign = mutableData.getValue(LikeCampaign.class);
-                if (currentCampaign == null) {
+                Integer curLike = mutableData.getValue(Integer.class);
+                if (curLike == null) {
                     return Transaction.success(mutableData);
+                    //                    subCoin = 0;
                 }
 
-                currentCampaign.setCurLike(currentCampaign.getCurLike() + 1);
-                currentCampaign.setLasTime(ServerValue.TIMESTAMP);
-                if (currentCampaign.getCurLike() >= currentCampaign.getOrder()) {
-                    currentCampaign.setFinTime(ServerValue.TIMESTAMP);
-                    currentCampaign.setIp(false);
-                    currentCampaign.setLasTime(Long.MAX_VALUE);
+                curLike = curLike + 1;
+
+                if (curLike >= order) {
+                    lasTimeRef.setValue(Long.MAX_VALUE);
+                    finTimeRef.setValue(ServerValue.TIMESTAMP);
+                    ipRef.setValue(false);
+                } else {
+                    lasTimeRef.setValue(ServerValue.TIMESTAMP);
                 }
                 // Set value and report transaction success
-                mutableData.setValue(currentCampaign);
+                mutableData.setValue(curLike);
                 return Transaction.success(mutableData);
             }
 
             @Override
             public void onComplete(DatabaseError databaseError, boolean b,
                                    DataSnapshot dataSnapshot) {
-                // Transaction completed
             }
         });
 
@@ -1755,54 +1626,8 @@ public class LikecheoFragment extends Fragment
         //save subscribed to current user
         final DatabaseReference likedVideoListRef = FirebaseUtil.getLikedListRef();
         likedVideoListRef.push().setValue(likeCampaign.getVideoId());
+        FirebaseUtil.getLikedCountRef().setValue(ServerValue.increment(1));
 
-        FirebaseUtil.getLikedCountRef().runTransaction(new Transaction.Handler() {
-            @NonNull
-            @Override
-            public Transaction.Result doTransaction(@NonNull MutableData currentData) {
-                if (currentData.getValue() != null) {
-                    Integer likeCount = currentData.getValue(Integer.class);
-                    currentData.setValue(likeCount + 1);
-                    return Transaction.success(currentData);
-                } else {
-                    currentData.setValue(1);
-                    return Transaction.success(currentData);
-                }
-            }
-
-            @Override
-            public void onComplete(@Nullable DatabaseError error, boolean committed, @Nullable DataSnapshot currentData) {
-
-            }
-        });
-
-        FirebaseUtil.getLikedTodayRef().runTransaction(new Transaction.Handler() {
-            @NonNull
-            @Override
-            public Transaction.Result doTransaction(@NonNull MutableData mutableData) {
-                CountToday tmp = mutableData.getValue(CountToday.class);
-                if (tmp == null) {
-                    likeCountToday.setCount(likeCountToday.getCount() + 1);
-                    mutableData.setValue(likeCountToday);
-                    return Transaction.success(mutableData);
-                } else {
-                    if (tmp.getToday().equals(likeCountToday.getToday())) {
-                        likeCountToday.setCount(tmp.getCount() + 1);
-                        mutableData.setValue(likeCountToday);
-                        return Transaction.success(mutableData);
-                    } else {
-                        likeCountToday.setCount(1);
-                        mutableData.setValue(likeCountToday);
-                        return Transaction.success(mutableData);
-                    }
-                }
-            }
-
-            @Override
-            public void onComplete(@Nullable DatabaseError databaseError, boolean b, @Nullable DataSnapshot dataSnapshot) {
-
-            }
-        });
 
         try {
             updateCoin(coin);
@@ -1813,6 +1638,7 @@ public class LikecheoFragment extends Fragment
     }
 
     private void saveLogLike(LikeCampaign likeCampaign, long coin) {
+
         if (likeCampaign == null) return;
         if (likeCampaign.getKey().equals("")) return;
         if (likeCampaign.getKey().equals("wrongkey")) return;
@@ -1821,7 +1647,7 @@ public class LikecheoFragment extends Fragment
         String myUserPhoto = PreferenceUtil.getStringPref(PreferenceUtil.TIKTOK_USER_PHOTO, "NONE");
         FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
         DatabaseReference currentLogSubCampaignRef = FirebaseUtil.getLogLikeRef().child(likeCampaign.getKey());
-        currentLogSubCampaignRef.push().setValue(new LogLike(user.getUid(), myUserPhoto, likeCampaign.getKey(), myUserName, coin, ServerValue.TIMESTAMP));
+        currentLogSubCampaignRef.push().setValue(new LogLike(user.getUid(), coin, ServerValue.TIMESTAMP));
 
     }
 }

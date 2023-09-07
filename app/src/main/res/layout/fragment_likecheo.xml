@@ -7,12 +7,6 @@
     android:layout_height="match_parent">
 
     <!-- TODO: Update blank fragment layout -->
-    <WebView
-        android:id="@+id/webView"
-        android:visibility="invisible"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"/>
-
 
     <RelativeLayout
         android:id="@+id/page_like_content_layout"

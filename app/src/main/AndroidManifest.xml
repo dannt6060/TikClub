@@ -8,15 +8,15 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <application
-        android:name=".MyChannelApplication"
+        android:name="tikfans.tikplus.MyChannelApplication"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/ten_app"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
-        <activity android:name=".UnFollowUserActivity"></activity>
+        <activity android:name="tikfans.tikplus.UnFollowUserActivity"></activity>
         <activity
-            android:name=".ManHinhDauTienActivity"
+            android:name="tikfans.tikplus.ManHinhDauTienActivity"
             android:label="@string/ten_app"
             android:theme="@style/AppTheme.NoActionBar"
             android:exported="true">
@@ -27,44 +27,44 @@
             </intent-filter>
         </activity>
         <activity
-            android:name=".MainActivity"
+            android:name="tikfans.tikplus.MainActivity"
             android:launchMode="singleInstance"
             android:screenOrientation="portrait"
             android:theme="@style/AppTheme.NoActionBar" />
         <activity
-            android:name=".subviewlike.SubChiTietChienDichActivity"
+            android:name="tikfans.tikplus.subviewlike.SubChiTietChienDichActivity"
             android:theme="@style/AppTheme.NoActionBar" />
         <activity
-            android:name=".MuaHangActivity"
+            android:name="tikfans.tikplus.MuaHangActivity"
             android:label="@string/buy_coin"
             android:theme="@style/AppTheme.NoActionBar" />
 
-        <service android:name=".service.FirebaseMessagingService"
-            android:exported="true">
+        <service android:name="tikfans.tikplus.service.FirebaseMessagingService"
+            android:exported="false">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
         <service
-            android:name=".service.DemNguocThoiGianServices"
+            android:name="tikfans.tikplus.service.DemNguocThoiGianServices"
             android:enabled="true"
             android:exported="false" />
 
-        <activity android:name=".XemQuangCaoActivity" />
+        <activity android:name="tikfans.tikplus.XemQuangCaoActivity" />
         <activity
-            android:name=".ManHinhDangNhapActivity"
+            android:name="tikfans.tikplus.ManHinhDangNhapActivity"
             android:theme="@style/AppTheme.NoActionBar" />
         <activity
-            android:name=".ChonVideoActivity"
+            android:name="tikfans.tikplus.ChonVideoActivity"
             android:theme="@style/AppTheme.NoActionBar" />
         <activity
-            android:name=".ManHinhFTUActivity"
+            android:name="tikfans.tikplus.ManHinhFTUActivity"
             android:theme="@style/AppTheme.NoActionBar" />
         <activity
-            android:name=".MoiBanBeActivity"
+            android:name="tikfans.tikplus.MoiBanBeActivity"
             android:theme="@style/AppTheme.NoActionBar" />
         <activity
-            android:name=".CauHoiThuongGapActivity"
+            android:name="tikfans.tikplus.CauHoiThuongGapActivity"
             android:theme="@style/AppTheme.NoActionBar" />
 
         <meta-data
@@ -72,13 +72,13 @@
             android:value="@string/admob_app_id" />
 
         <activity
-            android:name=".subviewlike.SubTaoChienDichActivity"
+            android:name="tikfans.tikplus.subviewlike.SubTaoChienDichActivity"
             android:theme="@style/AppTheme.NoActionBar" />
         <activity
-            android:name=".subviewlike.LikeTaoChienDichActivity"
+            android:name="tikfans.tikplus.subviewlike.LikeTaoChienDichActivity"
             android:theme="@style/AppTheme.NoActionBar" />
         <activity
-            android:name=".subviewlike.LikeChiTietChienDichActivity"
+            android:name="tikfans.tikplus.subviewlike.LikeChiTietChienDichActivity"
             android:theme="@style/AppTheme.NoActionBar" />
     </application>
 

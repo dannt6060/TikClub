@@ -8,20 +8,11 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.AnimationUtils;
-import android.widget.Toast;
 
 import androidx.fragment.app.Fragment;
 
-import com.google.android.gms.ads.AdRequest;
-import com.google.android.gms.ads.MobileAds;
-import com.google.firebase.database.ServerValue;
-import com.google.firebase.remoteconfig.FirebaseRemoteConfig;
-
 
 import tikfans.tikplus.util.AppUtil;
-import tikfans.tikplus.util.FirebaseUtil;
-import tikfans.tikplus.util.RemoteConfigUtil;
-import tikfans.tikplus.model.LogAdsReward;
 
 
 /**

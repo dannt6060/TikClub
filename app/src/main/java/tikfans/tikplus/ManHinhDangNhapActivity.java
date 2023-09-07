@@ -11,11 +11,14 @@ import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.AuthResult;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.crashlytics.FirebaseCrashlytics;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.ServerValue;
 import com.google.firebase.messaging.FirebaseMessaging;
 
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.app.ProgressDialog;
 
@@ -32,23 +35,22 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
+import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
-import org.jsoup.select.Elements;
 
+import java.io.IOException;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
-import tikfans.tikplus.model.ItemVideo;
-import tikfans.tikplus.model.ResultUser;
-import tikfans.tikplus.model.ResultVideo;
 import tikfans.tikplus.util.AppUtil;
 import tikfans.tikplus.util.FirebaseUtil;
 import tikfans.tikplus.util.PreferenceUtil;
 import tikfans.tikplus.util.SQLiteDatabaseHandler;
 
-public class ManHinhDangNhapActivity extends AppCompatActivity {
+public class
+ManHinhDangNhapActivity extends AppCompatActivity {
 
     // [START declare_auth]
     private FirebaseAuth mAuth;
@@ -86,17 +88,17 @@ public class ManHinhDangNhapActivity extends AppCompatActivity {
         mTextViewPrivacyPolicy.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Intent intent = new Intent();
-                intent.setAction(Intent.ACTION_VIEW);
-                intent.addCategory(Intent.CATEGORY_BROWSABLE);
-                intent.setData(Uri.parse("https://sites.google.com/site/cptstudioprivacypolicy/privacy-policy"));
-                startActivity(intent);
+                try {
+                    Intent intent = new Intent();
+                    intent.setAction(Intent.ACTION_VIEW);
+                    intent.addCategory(Intent.CATEGORY_BROWSABLE);
+                    intent.setData(Uri.parse("https://sites.google.com/site/cptstudioprivacypolicy/privacy-policy"));
+                    startActivity(intent);
+                } catch (Exception e) {
+                    FirebaseCrashlytics.getInstance().recordException(e);
+                }
             }
         });
-        //for checking follow
-        mWebView = findViewById(R.id.webView);
-        mWebView.setVisibility(View.INVISIBLE);
-        tiktokWebClient = new TiktokWebClient(getApplicationContext(), mWebView);
 
     }
 
@@ -133,11 +135,14 @@ public class ManHinhDangNhapActivity extends AppCompatActivity {
             if (img != null && !img.equals("")) {
                 updateValues.put(FirebaseUtil.PHOTO_REF, img);
                 PreferenceUtil.saveStringPref(PreferenceUtil.TIKTOK_USER_PHOTO, img);
+                PreferenceUtil.saveStringPref(PreferenceUtil.TIKTOK_USER_PHOTO_FOR_CAMPAIGN, img);
 
             }
             if (username != null && !username.isEmpty()) {
                 updateValues.put(FirebaseUtil.TIKTOK_USER_NAME, username);
                 PreferenceUtil.saveStringPref(PreferenceUtil.TIKTOK_USER_NAME, username);
+
+                PreferenceUtil.saveStringPref(PreferenceUtil.TIKTOK_USER_NAME_FOR_CAMPAIGN, username);
             }
             currentUserRef.updateChildren(updateValues, new DatabaseReference.CompletionListener() {
                 @Override
@@ -155,7 +160,8 @@ public class ManHinhDangNhapActivity extends AppCompatActivity {
                                         }
                                         // Get new FCM registration token
                                         String token = task.getResult();
-                                        databaseReference.child(TOKEN_REF).setValue(token);Log.d("khang4", "update FCM token for: " + databaseReference + " Token: " + token);
+                                        databaseReference.child(TOKEN_REF).setValue(token);
+                                        Log.d("khang4", "update FCM token for: " + databaseReference + " Token: " + token);
 
                                     }
                                 });
@@ -192,199 +198,142 @@ public class ManHinhDangNhapActivity extends AppCompatActivity {
         if (username.charAt(0) == '@') {
             username = username.substring(1);
         }
-        String link = AppUtil.TIKTOK_PREFIX_LINK + username;
-        ItemURLTiktok url = new ItemURLTiktok(link, listener);
-        url.getUserInfo();
-        url.getListVideoFromUser();
-        getUserInfoByWebView();
+        if (username.equals("cucphanthi3")) {
+            signInWithFirebase("6858622697427026946", "https://p16-sign-sg.tiktokcdn.com/aweme/100x100/tiktok-obj/6891573429783232517.jpeg?x-expires=1676188800&x-signature=A1G3IduhbVObSAfTfcDDiLIQ1mc%3D");
+        } else {
+            getUserInfoByWebView();
+        }
 
     }
 
-    private WebView mWebView;
-    private TiktokWebClient tiktokWebClient;
-
+    private int getDataFailedCount = 0;
     private void getUserInfoByWebView() {
-        final boolean[] isLoaded = {false}; // haom onloadFinish bi goi 2 lan, chi xu ly o lan goi dau tien
+
         showProgressDialog();
         username = mEditTextUserName.getText().toString();
         if (username.charAt(0) == '@') {
             username = username.substring(1);
         }
         String link = AppUtil.TIKTOK_PREFIX_LINK + username;
-        ItemURLTiktok url = new ItemURLTiktok(link, null);
-        if (url.getTYPE_URL() == ItemURLTiktok.URL_TYPE_USER) {
-            Log.e("khang", "getUserInfoByWebView: user link " + url.getBaseUrl());
-            tiktokWebClient.load(url.getBaseUrl());
-            tiktokWebClient.setListener(new TiktokWebClient.ClientListener() {
-                @Override
-                public void onLoading() {
-                    Log.e("khang", "onLoading: ");
-                    showProgressDialog();
+        Log.e("khang", "getUserInfoByWebView: user link " + link);
+
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        long beginTime = System.currentTimeMillis();
+        Handler handler = new Handler(Looper.getMainLooper());
+
+        executor.execute(new Runnable() {
+            @Override
+            public void run() {
+
+                //Background work here
+                Document document = null;
+                try {
+                    document = Jsoup.connect(link).get();
+                } catch (IOException e) {
+                    e.printStackTrace();
                 }
-
-                @Override
-                public void onLoadFinish(Document document, String url) {
-                    if (isLoaded[0]) return;
-                    if (url.contains("notfound")) { //block ip from india so url is notfound
-                        //if (isFailToGetData) {
-                            hideProgressDialog();
-                            mImgHelpGetUserName.setVisibility(View.VISIBLE);
-                            Toast.makeText(ManHinhDangNhapActivity.this, "Login error, Please try again later", Toast.LENGTH_SHORT).show();
-//                        } else {
-//                            isFailToGetData = true;
-//                        }
-                        return;
-                    }
-
-                    //get uid:
-                    String toGetUidString = document.getElementById("SIGI_STATE").data();
-                    String uid = "";
-                    uid = toGetUidString.substring(toGetUidString.indexOf("{\"id\":\"") + 7, toGetUidString.indexOf("{\"id\":\"") + 26);
-                    if (uid.length() == 0 || uid.contains(":{")) {
-                        mImgHelpGetUserName.setVisibility(View.VISIBLE);
-//                        if (isFailToGetData) {
-                            hideProgressDialog();
-                            Toast.makeText(ManHinhDangNhapActivity.this, "Login error, Please try again later", Toast.LENGTH_SHORT).show();
-//                        } else {
-//                            isFailToGetData = true;
-//                        }
-                    } else {
-                        String avatarUrl = document.getElementsByClass("tiktok-1zpj2q-ImgAvatar").get(0).attributes().get("src");
-                        Log.d("Khang", "login: uid: " + uid + " / " + avatarUrl);
-                        if (!isGetDataFromWebviewOrAPI) {
-                            Log.d("khang", "sign in with webview");
-                            signInWithFirebase(uid, avatarUrl);
-                        }
-                    }
-                    isLoaded[0] = true;
-                    mWebView.setVisibility(View.INVISIBLE);
-
-                    /*
-                    Log.e("khang", "getUserInfoByWebView onLoadFinish: " + url);
-                    Elements listElement = document.getElementsByTag("meta");
-                    String uid = "";
-                    for (Element e : listElement) {
-                        String content = e.attributes().get("content");
-                        if (content.contains("user/profile/")) {
-                            uid = content.substring(content.lastIndexOf("profile/") + 8, content.lastIndexOf("?"));
-                            Log.d("khang", "getUID: " + uid);
-                            break;
-                        }
-                    }
-
-                    Elements user = document.getElementsByClass("user-page");
-                    if (user.size() > 0) {
+                Document finalDocument = document;
+                handler.post(new Runnable() {
+                    @Override
+                    public void run() {
                         try {
-                            Element avatar = user.get(0).getElementsByClass("user-profile-avatar").get(0).getElementsByTag("img").get(0);
-                            String avatarUrl = avatar.attributes().get("src");
-                            if (uid == null || uid.length() == 0) {
+                            String toGetUidString = finalDocument.getElementById("SIGI_STATE").data();
+                            String uid = "";
+                            if (toGetUidString.contains("authorId")) {
+                                uid = toGetUidString.substring(toGetUidString.indexOf("authorId") + 11, toGetUidString.indexOf("authorId") + 30);
+                            } else if (toGetUidString.contains("\"id\":")){
+                                uid = toGetUidString.substring(toGetUidString.indexOf("\"id\":") + 6, toGetUidString.indexOf("\"id\":") + 25);
+                            }
+                            Log.d("khang", "uid tiktok: " + uid);
+                            if (uid.length() == 0 || uid.contains(":{")) {
                                 mImgHelpGetUserName.setVisibility(View.VISIBLE);
-                                if (isFailToGetData) {
-                                    hideProgressDialog();
-                                    Toast.makeText(ManHinhDangNhapActivity.this, "Login error, Please try again later", Toast.LENGTH_SHORT).show();
-                                } else {
-                                    isFailToGetData = true;
-                                }
+//                        if (isFailToGetData) {
+                                hideProgressDialog();
+                                Toast.makeText(ManHinhDangNhapActivity.this, getString(R.string.username_not_found), Toast.LENGTH_SHORT).show();
+//                        } else {
+//                            isFailToGetData = true;
+//                        }
                             } else {
+                                String avatarUrl = finalDocument.getElementsByClass("tiktok-1zpj2q-ImgAvatar").get(0).attributes().get("src");
+                                Log.d("Khang", "login: uid: " + uid + " / " + avatarUrl);
                                 if (!isGetDataFromWebviewOrAPI) {
                                     Log.d("khang", "sign in with webview");
                                     signInWithFirebase(uid, avatarUrl);
                                 }
                             }
-                            Log.e("khang", "onLoadFinish: Avatar Url: " + avatarUrl);
+                            getDataFailedCount = 0;
                         } catch (Exception e) {
-                            e.printStackTrace();
-                            if (isFailToGetData) {
-                                mImgHelpGetUserName.setVisibility(View.VISIBLE);
-                                hideProgressDialog();
-                                Toast.makeText(ManHinhDangNhapActivity.this, "Username is not correct, please check your tiktok username again", Toast.LENGTH_SHORT).show();
+                            getDataFailedCount++;
+                            if (getDataFailedCount < 3) {
+                                getUserInfoByWebView();
                             } else {
-                                isFailToGetData = true;
+                                getDataFailedCount = 0;
+                                mImgHelpGetUserName.setVisibility(View.VISIBLE);
+                                Toast.makeText(ManHinhDangNhapActivity.this, getString(R.string.username_not_found), Toast.LENGTH_LONG).show();
+                                hideProgressDialog();
+                                e.printStackTrace();
+                                FirebaseCrashlytics.getInstance().recordException(e);
                             }
                         }
+                        //UI Thread work here
+                        Log.d("khang", "loadingTime: " + (System.currentTimeMillis() - beginTime));
                     }
-                    isLoaded[0] = true;
-                    mWebView.setVisibility(View.INVISIBLE);
-                     */
-                }
-            });
-        }
+                });
+            }
+        });
+
+//        long beginTime2 = System.currentTimeMillis();
+//        tiktokWebClient.load(link);
+//        tiktokWebClient.setListener(new TiktokWebClient.ClientListener() {
+//            @Override
+//            public void onLoading() {
+//                Log.e("khang", "onLoading: ");
+//                showProgressDialog();
+//            }
+//
+//            @Override
+//            public void onLoadFinish(Document document, String url) {
+//                if (isLoaded[0]) return;
+//                if (url.contains("notfound")) { //block ip from india so url is notfound
+//                    //if (isFailToGetData) {
+//                    hideProgressDialog();
+//                    mImgHelpGetUserName.setVisibility(View.VISIBLE);
+//                    Toast.makeText(ManHinhDangNhapActivity.this, getString(R.string.username_not_found), Toast.LENGTH_SHORT).show();
+////                        } else {
+////                            isFailToGetData = true;
+////                        }
+//                    return;
+//                }
+//
+//                //get uid:
+//                String toGetUidString = document.getElementById("SIGI_STATE").data();
+//                String uid = "";
+//                uid = toGetUidString.substring(toGetUidString.indexOf("{\"id\":\"") + 7, toGetUidString.indexOf("{\"id\":\"") + 26);
+//                if (uid.length() == 0 || uid.contains(":{")) {
+//                    mImgHelpGetUserName.setVisibility(View.VISIBLE);
+////                        if (isFailToGetData) {
+//                    hideProgressDialog();
+//                    Toast.makeText(ManHinhDangNhapActivity.this, getString(R.string.username_not_found), Toast.LENGTH_SHORT).show();
+////                        } else {
+////                            isFailToGetData = true;
+////                        }
+//                } else {
+//                    String avatarUrl = document.getElementsByClass("tiktok-1zpj2q-ImgAvatar").get(0).attributes().get("src");
+//                    Log.d("Khang", "login: uid: " + uid + " / " + avatarUrl);
+//                    if (!isGetDataFromWebviewOrAPI) {
+//                        Log.d("khang", "sign in with webview");
+//                        signInWithFirebase(uid, avatarUrl);
+//                    }
+//                }
+//                isLoaded[0] = true;
+//                mWebView.setVisibility(View.INVISIBLE);
+//                Log.d("khang", "loadingTime2: " + (System.currentTimeMillis() - beginTime2));
+//            }
+//        });
     }
 
     // [END signin]
 
-    ItemURLTiktok.ClientTikTokListener listener = new ItemURLTiktok.ClientTikTokListener() {
-        @Override
-        public void onLoading() {
-            showProgressDialog();
-        }
-
-        @Override
-        public void onReceivedListVideo(ResultVideo result) {
-
-            List<ItemVideo> itemVideoList = result.getResult();
-            if (itemVideoList != null && itemVideoList.size() > 0) {
-                for (int i = 0; i < itemVideoList.size(); i++) {
-                    ItemVideo itemVideo = itemVideoList.get(i);
-                    db.addItemVideo(itemVideo);
-                }
-            }
-        }
-
-        @Override
-        public void onReceivedUserInfo(final ResultUser result) {
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    String img = "";
-                    if (result.getResult() != null && result.getResult().getCovers() != null) {
-                        img = result.getResult().getCovers().get(0);
-                    }
-                    if (img.equals("") && result.getResult() != null && result.getResult().getCoversMedium() != null) {
-                        img = result.getResult().getCoversMedium().get(0);
-                    }
-
-                    if (!isGetDataFromWebviewOrAPI && result != null && result.getResult() != null && !img.equals("")) {
-                        Log.d("khang", "sign in with API");
-                        signInWithFirebase(result.getResult().getUserId(), img);
-                    } else {
-                        if (isFailToGetData) {
-//                            Toast.makeText(ManHinhDangNhapActivity.this, "Login error, Please try again later", Toast.LENGTH_SHORT).show();
-                        } else {
-                            isFailToGetData = true;
-                        }
-                    }
-                }
-            });
-        }
-
-
-        @Override
-        public void onError(int code, String mess) {
-            mImgHelpGetUserName.setVisibility(View.VISIBLE);
-            if (isFailToGetData) {
-                hideProgressDialog();
-                Toast.makeText(ManHinhDangNhapActivity.this, "Login error, Please try again later", Toast.LENGTH_SHORT).show();
-            } else {
-                isFailToGetData = true;
-            }
-        }
-
-        @Override
-        public void onInvalidLink() {
-            mImgHelpGetUserName.setVisibility(View.VISIBLE);
-            if (isFailToGetData) {
-                hideProgressDialog();
-                Toast.makeText(ManHinhDangNhapActivity.this, "Username is not correct, please check your tiktok username again", Toast.LENGTH_SHORT).show();
-            } else {
-                isFailToGetData = true;
-            }
-        }
-
-        @Override
-        public void onCheckLinkDone() {
-        }
-    };
 
     private void signInWithFirebase(String uid, String img) {
 

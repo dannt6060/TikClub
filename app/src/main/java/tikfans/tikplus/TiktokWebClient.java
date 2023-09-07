@@ -17,7 +17,7 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 
 public class TiktokWebClient {
-    private static final String TAG = TiktokWebClient.class.getSimpleName();
+    private static final String TAG = "khang";
     private WebView webview;
     private ClientListener listener;
     private Handler handler;
@@ -54,8 +54,8 @@ public class TiktokWebClient {
             webview.getSettings().setJavaScriptEnabled(true);
             webview.getSettings().setUseWideViewPort(true);
             webview.getSettings().setLoadWithOverviewMode(true);
-            webview.getSettings().setLoadsImagesAutomatically(false);
-            webview.getSettings().setAppCacheEnabled(true);
+            webview.getSettings().setLoadsImagesAutomatically(true);
+           // webview.getSettings().setAppCacheEnabled(true);
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                 webview.getSettings().setMixedContentMode(0);
                 webview.setLayerType(View.LAYER_TYPE_HARDWARE, null);

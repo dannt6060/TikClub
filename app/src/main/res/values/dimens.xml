@@ -15,4 +15,5 @@
     <dimen name="fqa_question_textsize">14dp</dimen>
     <dimen name="fqa_space">6dp</dimen>
     <dimen name="fqa_answer_textsize">14dp</dimen>
+    <dimen name="save_text_size">16dp</dimen>
 </resources>

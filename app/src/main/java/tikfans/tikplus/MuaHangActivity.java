@@ -35,9 +35,6 @@ import com.android.billingclient.api.PurchasesResponseListener;
 import com.android.billingclient.api.PurchasesUpdatedListener;
 import com.android.billingclient.api.QueryProductDetailsParams;
 import com.android.billingclient.api.QueryPurchasesParams;
-import com.android.billingclient.api.SkuDetails;
-import com.android.billingclient.api.SkuDetailsParams;
-import com.android.billingclient.api.SkuDetailsResponseListener;
 import com.google.common.collect.ImmutableList;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
@@ -78,6 +75,7 @@ public class MuaHangActivity extends AppCompatActivity implements View.OnClickLi
     TextView mTxtPriceMiniPackage, mTxtPriceSmallPackage, mTxtPriceLargePackage, mTxtPriceHugePackage, mTxtPriceMaxPackage, mTxtPriceWeekly, mTxtPriceMonthly, mTxtPrice3Months;
     TextView mTxtWeeklyDescription, mTxtMonthlyDescription, mTxtThreeMonthsDescription;
     Button mManageSubscriptionButton;
+    TextView txtSaveSmall, txtSaveLarge, txtSaveHuge, txtSaveMax;
     //for promote pacakge
     CardView mPromoPackageLayout;
     TextView txtCoinBuyPromoPackage, mTxtPricePromoPackage, mTxtCountDown, txtCoinBasePromoPackage;
@@ -293,6 +291,34 @@ public class MuaHangActivity extends AppCompatActivity implements View.OnClickLi
         mTxtMonthlyDescription = findViewById(R.id.three_monthly_description);
         mTxtThreeMonthsDescription = findViewById(R.id.yearly_description);
 
+        txtCoinBuyMiniPackage = findViewById(R.id.txtCoinMiniPackage);
+        txtCoinBuySmallPackage = findViewById(R.id.txtCoinBuySmallPackage);
+        txtCoinBuyLargerPackage = findViewById(R.id.txtCoinBuyLagerPackage);
+        txtCoinBuyHugePackage = findViewById(R.id.txtCoinBuyHugePackage);
+        txtCoinBuyMaxPackage = findViewById(R.id.txtCoinBuyMaxPackage);
+
+        txtSaveSmall = findViewById(R.id.txt_save_small);
+        txtSaveLarge = findViewById(R.id.txt_save_large);
+        txtSaveHuge = findViewById(R.id.txt_save_huge);
+        txtSaveMax = findViewById(R.id.txt_save_max);
+
+        long mini = FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_PURCHASE_MINI_NEW);
+        long small = FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_PURCHASE_SMALL_NEW);
+        long large = FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_PURCHASE_LARGE_NEW);
+        long huge = FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_PURCHASE_HUGE_NEW);
+        long max = FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_PURCHASE_MAX_NEW);
+
+        txtCoinBuyMiniPackage.setText(String.format(getString(R.string.mua_coin), mini));
+        txtCoinBuySmallPackage.setText(String.format(getString(R.string.mua_coin), small));
+        txtCoinBuyLargerPackage.setText(String.format(getString(R.string.mua_coin), large));
+        txtCoinBuyHugePackage.setText(String.format(getString(R.string.mua_coin), huge));
+        txtCoinBuyMaxPackage.setText(String.format(getString(R.string.mua_coin), max));
+
+        txtSaveSmall.setText(String.format(getString(R.string.save_coin), (small - mini * 5), small * 100 / 5 / mini - 100));
+        txtSaveLarge.setText(String.format(getString(R.string.save_coin), (large - mini * 10), large * 100 / 10 / mini - 100));
+        txtSaveHuge.setText(String.format(getString(R.string.save_coin), (huge - mini * 20), huge * 100 / 20 / mini - 100));
+        txtSaveMax.setText(String.format(getString(R.string.save_coin), (max - mini * 100), max * 100 / 100 / mini - 100));
+
         mManageSubscriptionButton = findViewById(R.id.btn_google_play_subscription);
         mManageSubscriptionButton.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -379,17 +405,6 @@ public class MuaHangActivity extends AppCompatActivity implements View.OnClickLi
         vipThreeMonths.setOnClickListener(this);
         vipYearly.setOnClickListener(this);
 
-        txtCoinBuyMiniPackage = findViewById(R.id.txtCoinMiniPackage);
-        txtCoinBuySmallPackage = findViewById(R.id.txtCoinBuySmallPackage);
-        txtCoinBuyLargerPackage = findViewById(R.id.txtCoinBuyLagerPackage);
-        txtCoinBuyHugePackage = findViewById(R.id.txtCoinBuyHugePackage);
-        txtCoinBuyMaxPackage = findViewById(R.id.txtCoinBuyMaxPackage);
-
-        txtCoinBuyMiniPackage.setText(String.format(getString(R.string.mua_coin), FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_PURCHASE_MINI_NEW)));
-        txtCoinBuySmallPackage.setText(String.format(getString(R.string.mua_coin), FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_PURCHASE_SMALL_NEW)));
-        txtCoinBuyLargerPackage.setText(String.format(getString(R.string.mua_coin), FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_PURCHASE_LARGE_NEW)));
-        txtCoinBuyHugePackage.setText(String.format(getString(R.string.mua_coin), FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_PURCHASE_HUGE_NEW)));
-        txtCoinBuyMaxPackage.setText(String.format(getString(R.string.mua_coin), FirebaseRemoteConfig.getInstance().getLong(RemoteConfigUtil.TIKFANS_PURCHASE_MAX_NEW)));
     }
 
     private void startBillingConnection() {

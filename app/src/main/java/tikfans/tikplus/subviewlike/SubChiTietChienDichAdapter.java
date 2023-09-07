@@ -2,6 +2,7 @@ package tikfans.tikplus.subviewlike;
 
 import static com.unity3d.scar.adapter.common.Utils.runOnUiThread;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
@@ -19,27 +20,23 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.view.ContextThemeWrapper;
 import androidx.appcompat.widget.PopupMenu;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.firebase.crashlytics.FirebaseCrashlytics;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.MutableData;
-import com.google.firebase.database.Transaction;
+import com.google.firebase.database.ValueEventListener;
 import com.squareup.picasso.Picasso;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 
-import tikfans.tikplus.ItemURLTiktok;
 import tikfans.tikplus.R;
-import tikfans.tikplus.model.ResultUser;
-import tikfans.tikplus.model.ResultVideo;
 import tikfans.tikplus.model.UnFollowUSer;
 import tikfans.tikplus.util.AppUtil;
 import tikfans.tikplus.util.CircleTransform;
@@ -85,83 +82,9 @@ public class SubChiTietChienDichAdapter extends RecyclerView.Adapter<RecyclerVie
 
     }
 
-    ItemURLTiktok.ClientTikTokListener listener = new ItemURLTiktok.ClientTikTokListener() {
-        @Override
-        public void onLoading() {
-        }
-
-        @Override
-        public void onReceivedListVideo(ResultVideo result) {
-        }
-
-        @Override
-        public void onReceivedUserInfo(final ResultUser result) {
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    if (result != null) {
-                        String img = "";
-                        if (result.getResult() != null && result.getResult().getCovers() != null) {
-                            img = result.getResult().getCovers().get(0);
-                        }
-                        if (img.equals("") && result.getResult() != null && result.getResult().getCoversMedium() != null) {
-                            img = result.getResult().getCoversMedium().get(0);
-                        }
-                        if (!img.equals("")) {
-                            Log.d("khang", "onReceivedUserInfo img: " + img);
-                            if (campaignDetailHeaderViewHolder != null) {
-                                Picasso.get().load(img).transform(new CircleTransform())
-                                        .into(campaignDetailHeaderViewHolder.imgChannelThumb);
-                            }
-                            final DatabaseReference campaignCurrentRef = FirebaseUtil.getSubCampaignsRef().child(campaign.getKey());
-                            String finalImg = img;
-                            campaignCurrentRef.runTransaction(new Transaction.Handler() {
-                                @NonNull
-                                @Override
-                                public Transaction.Result doTransaction(@NonNull MutableData mutableData) {
-                                    SubCampaign currentCampaign = mutableData.getValue(SubCampaign.class);
-                                    if (currentCampaign == null) {
-                                        return Transaction.success(mutableData);
-                                        //                    subCoin = 0;
-                                    }
-
-                                    currentCampaign.setUserImg(finalImg);
-
-                                    // Set value and report transaction success
-                                    mutableData.setValue(currentCampaign);
-                                    return Transaction.success(mutableData);
-                                }
-
-                                @Override
-                                public void onComplete(@Nullable DatabaseError databaseError, boolean b, @Nullable DataSnapshot dataSnapshot) {
-
-                                }
-                            });
-
-                        }
-                    }
-                }
-            });
-        }
-
-        @Override
-        public void onError(int code, String mess) {
-
-        }
-
-        @Override
-        public void onInvalidLink() {
-
-        }
-
-        @Override
-        public void onCheckLinkDone() {
-
-        }
-    };
 
     @Override
-    public void onBindViewHolder(RecyclerView.ViewHolder holder, int position) {
+    public void onBindViewHolder(RecyclerView.ViewHolder holder, @SuppressLint("RecyclerView") int position) {
         if (position == 0) {
             campaignDetailHeaderViewHolder = (CampaignDetailHeaderViewHolder) holder;
 //            textViewHolder.tvText.setText(mAuthorLiked.get(position).toString());
@@ -173,8 +96,12 @@ public class SubChiTietChienDichAdapter extends RecyclerView.Adapter<RecyclerVie
                         .transform(new CircleTransform())
                         .into(campaignDetailHeaderViewHolder.imgChannelThumb);
                 if (campaign.getUserImg() != null && !campaign.getUserImg().equals("") && !campaign.getUserImg().equals("NONE")) {
-                    Picasso.get().load(campaign.getUserImg()).transform(new CircleTransform())
-                            .into(campaignDetailHeaderViewHolder.imgChannelThumb);
+                    try {
+                        Picasso.get().load(campaign.getUserImg()).transform(new CircleTransform())
+                                .into(campaignDetailHeaderViewHolder.imgChannelThumb);
+                    } catch (Exception e) {
+                        FirebaseCrashlytics.getInstance().recordException(e);
+                    }
                     String img = campaign.getUserImg();
                     try {
                         String expiredTime = img.substring(img.lastIndexOf("expires=") + 8, img.lastIndexOf("expires=") + 18);
@@ -183,9 +110,6 @@ public class SubChiTietChienDichAdapter extends RecyclerView.Adapter<RecyclerVie
                         long l = Long.parseLong(expiredTime);
                         if (l < System.currentTimeMillis() / 1000) {
                             Log.d("khang", "da het han" + expiredTime);
-                            String link = AppUtil.TIKTOK_PREFIX_LINK + campaign.getUserName();
-                            ItemURLTiktok url = new ItemURLTiktok(link, listener);
-                            url.getUserInfo();
                         } else {
                             Log.d("khang", "chua het han" + expiredTime);
                         }
@@ -193,9 +117,6 @@ public class SubChiTietChienDichAdapter extends RecyclerView.Adapter<RecyclerVie
                         e.printStackTrace();
                     }
                 } else {
-                    String link = AppUtil.TIKTOK_PREFIX_LINK + campaign.getUserName();
-                    ItemURLTiktok url = new ItemURLTiktok(link, listener);
-                    url.getUserInfo();
                 }
 
 
@@ -245,10 +166,7 @@ public class SubChiTietChienDichAdapter extends RecyclerView.Adapter<RecyclerVie
             } else {
                 userViewHolder.txtViewedTimeStamp.setText(sfd.format(new Date(timeStamp)));
             }
-            userViewHolder.txtName.setText(logSub.getSubUName());
-            userViewHolder.imgMoreIcon.setVisibility(View.VISIBLE);
-            Picasso.get().load(logSub.getSubPhoto()).transform(new CircleTransform())
-                    .into(userViewHolder.profilePictureView);
+
             userViewHolder.setItemClickListener(new ItemClickListener() {
                 @Override
                 public void onClick(View view, int position) {
@@ -278,10 +196,14 @@ public class SubChiTietChienDichAdapter extends RecyclerView.Adapter<RecyclerVie
                                         .setPositiveButton(mContext.getResources().getString(R.string.bao_cao), new DialogInterface.OnClickListener() {
                                             @Override
                                             public void onClick(DialogInterface dialog, int which) {
-                                                DatabaseReference reportRef = FirebaseUtil.getReportSubRef(logSubArrayList.get(position - 1).getSubId());
-                                                reportRef.child(campaign.getUserName()).setValue(new UnFollowUSer(campaign.getUserName(), campaign.getUserImg(), campaign.getVideoId()));
-                                                Toast.makeText(mContext, mContext.getString(R.string.cam_on_vi_bao_cao), Toast.LENGTH_SHORT).show();
-                                                dialog.dismiss();
+                                                try {
+                                                    DatabaseReference reportRef = FirebaseUtil.getReportSubRef(logSubArrayList.get(position - 1).getSubId());
+                                                    reportRef.child(campaign.getUserName()).setValue(new UnFollowUSer(campaign.getUserName(), campaign.getUserImg(), campaign.getVideoId()));
+                                                    Toast.makeText(mContext, mContext.getString(R.string.cam_on_vi_bao_cao), Toast.LENGTH_SHORT).show();
+                                                    dialog.dismiss();
+                                                } catch (Exception e) {
+                                                    FirebaseCrashlytics.getInstance().recordException(e);
+                                                }
                                             }
                                         })
                                         .show();
@@ -295,6 +217,67 @@ public class SubChiTietChienDichAdapter extends RecyclerView.Adapter<RecyclerVie
                     popup.show();//showing popup menu
                 }
             });
+
+            userViewHolder.txtName.setText(logSub.getSubUName());
+            userViewHolder.imgMoreIcon.setVisibility(View.VISIBLE);
+            try {
+                Picasso.get().load(logSub.getSubPhoto()).transform(new CircleTransform())
+                        .into(userViewHolder.profilePictureView);
+            } catch (Exception e) {
+                FirebaseCrashlytics.getInstance().recordException(e);
+            }
+
+            if (logSub.getSubUName() == null || logSub.getSubUName().length()<1) {
+                DatabaseReference userNameRef = FirebaseUtil.getUserNameByUID(logSub.getSubId());
+                userNameRef.addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(@NonNull DataSnapshot snapshot) {
+                        try {
+                            logSub.setSubUName(snapshot.getValue(String.class));
+                            userViewHolder.txtName.setText("@" + logSub.getSubUName());
+                            logSubArrayList.set(position - 1, logSub);
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    }
+
+                    @Override
+                    public void onCancelled(@NonNull DatabaseError error) {
+
+                    }
+                });
+            } else {
+                userViewHolder.txtName.setText("@" + logSub.getSubUName());
+            }
+
+            if (logSub.getSubPhoto() == null || logSub.getSubPhoto().equals("")) {
+                DatabaseReference userPhotoRef = FirebaseUtil.getUserPhotoByUID(logSub.getSubId());
+                userPhotoRef.addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(@NonNull DataSnapshot snapshot) {
+                        try {
+                            Picasso.get().load(snapshot.getValue(String.class)).transform(new CircleTransform())
+                                    .into(userViewHolder.profilePictureView);
+                            logSub.setSubPhoto(snapshot.getValue(String.class));
+                            logSubArrayList.set(position - 1, logSub);
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    }
+
+                    @Override
+                    public void onCancelled(@NonNull DatabaseError error) {
+
+                    }
+                });
+            } else {
+                try {
+                    Picasso.get().load(logSub.getSubPhoto()).transform(new CircleTransform())
+                            .into(userViewHolder.profilePictureView);
+                } catch (Exception e) {
+                    FirebaseCrashlytics.getInstance().recordException(e);
+                }
+            }
         }
     }
 

@@ -3,7 +3,6 @@ package tikfans.tikplus.model;
 public class LogSub {
     public String subId;
     public String subPhoto;
-    public String campId;
     public String subUName;
     public long coin;
     public Object time;
@@ -19,10 +18,9 @@ public class LogSub {
         this.coin = coin;
     }
 
-    public LogSub(String subId, String subPhoto, String campId, String subUName, long coin, Object time) {
+    public LogSub(String subId, long coin, Object time) {
         this.subId = subId;
         this.subPhoto = subPhoto;
-        this.campId = campId;
         this.subUName = subUName;
         this.time = time;
         this.coin = coin;
@@ -45,13 +43,6 @@ public class LogSub {
         this.subPhoto = subPhoto;
     }
 
-    public String getCampId() {
-        return campId;
-    }
-
-    public void setCampId(String campId) {
-        this.campId = campId;
-    }
 
     public String getSubUName() {
         return subUName;

@@ -24,7 +24,7 @@ import tikfans.tikplus.model.LogAdsReward;
 public class XemQuangCaoActivity extends AppCompatActivity implements IUnityAdsInitializationListener {
     ProgressDialog progressDialog;
     private boolean isShowed = false;
-    private String unityGameID = "3737693";
+    private String unityGameID = "5252996";
     private boolean testMode = false;
     private String placementId = "rewardedVideo";
 

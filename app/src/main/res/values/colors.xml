@@ -40,5 +40,6 @@
     <color name="White" tools:keep="@color/White">#FFFFFF</color>
     <color name="color_dialog_body_text">#252525</color>
     <color name="ftu_control_color">#f46a4e</color>
+    <color name="colorlist_12db47">#64dd17</color>
 
 </resources>
