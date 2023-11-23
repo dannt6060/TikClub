@@ -8,6 +8,86 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:116681763681:android:f867ad5718400c1ef8f320",
+        "android_client_info": {
+          "package_name": "snaptik.tiksave.tik_saver_pro"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "116681763681-lg53vqohcn7ng5fl7jokm95r9e5eslne.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "snaptik.tiksave.tik_saver_pro",
+            "certificate_hash": "2403a64a1a5a93ce6aa48f4c36b736eb6e493c16"
+          }
+        },
+        {
+          "client_id": "116681763681-13mnfu1t16pjbi29740tffgbbaqpo3bd.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB-enkF0Q-o7oQ_s267tdTPtRc7YMGOvLM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "116681763681-13mnfu1t16pjbi29740tffgbbaqpo3bd.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "116681763681-5cnb1p7qcugn5c02n5qp66c2pj3dd75f.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "tikfans.tikplus.tikfollower"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:116681763681:android:ad861c1fc965c466f8f320",
+        "android_client_info": {
+          "package_name": "tikfans.tikfollow.tik.tok.followers.likes"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "116681763681-13mnfu1t16pjbi29740tffgbbaqpo3bd.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB-enkF0Q-o7oQ_s267tdTPtRc7YMGOvLM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "116681763681-13mnfu1t16pjbi29740tffgbbaqpo3bd.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "116681763681-5cnb1p7qcugn5c02n5qp66c2pj3dd75f.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "tikfans.tikplus.tikfollower"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:116681763681:android:b334f54fcb2967b8f8f320",
         "android_client_info": {
           "package_name": "tikfans.tikplus"
@@ -66,6 +146,22 @@
         }
       },
       "oauth_client": [
+        {
+          "client_id": "116681763681-93utndk4frq0rlcbjen0jcb9o4hmkngl.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "tikfans.tikplus.tikfans",
+            "certificate_hash": "a7fcbe749ffd3bb7d299f177c487c7ae623484e1"
+          }
+        },
+        {
+          "client_id": "116681763681-m6q8vdknnoa7of8h1u46lg25dqmkoj97.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "tikfans.tikplus.tikfans",
+            "certificate_hash": "e6f33ca2f244f070572c47d67f713151fbed8cda"
+          }
+        },
         {
           "client_id": "116681763681-13mnfu1t16pjbi29740tffgbbaqpo3bd.apps.googleusercontent.com",
           "client_type": 3

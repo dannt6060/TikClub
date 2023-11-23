@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="tikfans.tikplus">
+    package="tikfans.tikfollow.tik.tok.followers.likes">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="com.android.vending.BILLING" />
@@ -8,15 +8,15 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <application
-        android:name="tikfans.tikplus.MyChannelApplication"
+        android:name="tikfans.tikfollow.tik.tok.followers.likes.MyChannelApplication"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/ten_app"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
-        <activity android:name="tikfans.tikplus.UnFollowUserActivity"></activity>
+        <activity android:name="tikfans.tikfollow.tik.tok.followers.likes.UnFollowUserActivity"></activity>
         <activity
-            android:name="tikfans.tikplus.ManHinhDauTienActivity"
+            android:name="tikfans.tikfollow.tik.tok.followers.likes.ManHinhDauTienActivity"
             android:label="@string/ten_app"
             android:theme="@style/AppTheme.NoActionBar"
             android:exported="true">
@@ -27,44 +27,44 @@
             </intent-filter>
         </activity>
         <activity
-            android:name="tikfans.tikplus.MainActivity"
+            android:name="tikfans.tikfollow.tik.tok.followers.likes.MainActivity"
             android:launchMode="singleInstance"
             android:screenOrientation="portrait"
             android:theme="@style/AppTheme.NoActionBar" />
         <activity
-            android:name="tikfans.tikplus.subviewlike.SubChiTietChienDichActivity"
+            android:name="tikfans.tikfollow.tik.tok.followers.likes.subviewlike.SubChiTietChienDichActivity"
             android:theme="@style/AppTheme.NoActionBar" />
         <activity
-            android:name="tikfans.tikplus.MuaHangActivity"
+            android:name="tikfans.tikfollow.tik.tok.followers.likes.MuaHangActivity"
             android:label="@string/buy_coin"
             android:theme="@style/AppTheme.NoActionBar" />
 
-        <service android:name="tikfans.tikplus.service.FirebaseMessagingService"
+        <service android:name="tikfans.tikfollow.tik.tok.followers.likes.service.FirebaseMessagingService"
             android:exported="false">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
         <service
-            android:name="tikfans.tikplus.service.DemNguocThoiGianServices"
+            android:name="tikfans.tikfollow.tik.tok.followers.likes.service.DemNguocThoiGianServices"
             android:enabled="true"
             android:exported="false" />
 
-        <activity android:name="tikfans.tikplus.XemQuangCaoActivity" />
+        <activity android:name="tikfans.tikfollow.tik.tok.followers.likes.XemQuangCaoActivity" />
         <activity
-            android:name="tikfans.tikplus.ManHinhDangNhapActivity"
+            android:name="tikfans.tikfollow.tik.tok.followers.likes.ManHinhDangNhapActivity"
             android:theme="@style/AppTheme.NoActionBar" />
         <activity
-            android:name="tikfans.tikplus.ChonVideoActivity"
+            android:name="tikfans.tikfollow.tik.tok.followers.likes.ChonVideoActivity"
             android:theme="@style/AppTheme.NoActionBar" />
         <activity
-            android:name="tikfans.tikplus.ManHinhFTUActivity"
+            android:name="tikfans.tikfollow.tik.tok.followers.likes.ManHinhFTUActivity"
             android:theme="@style/AppTheme.NoActionBar" />
         <activity
-            android:name="tikfans.tikplus.MoiBanBeActivity"
+            android:name="tikfans.tikfollow.tik.tok.followers.likes.MoiBanBeActivity"
             android:theme="@style/AppTheme.NoActionBar" />
         <activity
-            android:name="tikfans.tikplus.CauHoiThuongGapActivity"
+            android:name="tikfans.tikfollow.tik.tok.followers.likes.CauHoiThuongGapActivity"
             android:theme="@style/AppTheme.NoActionBar" />
 
         <meta-data
@@ -72,13 +72,13 @@
             android:value="@string/admob_app_id" />
 
         <activity
-            android:name="tikfans.tikplus.subviewlike.SubTaoChienDichActivity"
+            android:name="tikfans.tikfollow.tik.tok.followers.likes.subviewlike.SubTaoChienDichActivity"
             android:theme="@style/AppTheme.NoActionBar" />
         <activity
-            android:name="tikfans.tikplus.subviewlike.LikeTaoChienDichActivity"
+            android:name="tikfans.tikfollow.tik.tok.followers.likes.subviewlike.LikeTaoChienDichActivity"
             android:theme="@style/AppTheme.NoActionBar" />
         <activity
-            android:name="tikfans.tikplus.subviewlike.LikeChiTietChienDichActivity"
+            android:name="tikfans.tikfollow.tik.tok.followers.likes.subviewlike.LikeChiTietChienDichActivity"
             android:theme="@style/AppTheme.NoActionBar" />
     </application>
 

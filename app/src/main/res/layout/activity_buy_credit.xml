@@ -44,7 +44,7 @@
                     android:textSize="20dp"
                     android:textStyle="bold" />
 
-                <tikfans.tikplus.util.CustomTextView
+                <tikfans.tikfollow.tik.tok.followers.likes.util.CustomTextView
                     android:id="@+id/coin"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
