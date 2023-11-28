@@ -61,7 +61,7 @@
     <string name="rate_app">Đánh giá ngay</string>
     <string name="tieu_de_danh_gia_ung_dung">Cảm ơn bạn đã sử dụng ứng dụng Tikfans</string>
     <string name="danh_gia_ung_dung_chi_tiet">Ứng dụng này có hữu ích với bạn không? Bạn có muốn tăng lượt theo dõi cho tài khoản TT của mình nhanh hơn không? Xin vui lòng cho chúng tôi đánh giá để có thể thu hút thêm người dùng sử dụng ứng dụng này. Cảm ơn bạn rất nhiều.</string>
-    <string name="mua_coin_giai_thich">Liên hệ với chúng tôi nếu bạn có một đơn đặt hàng đặc biệt hoặc nếu bạn có bất kỳ vấn đề với việc mua hàng trong ứng dụng qua email: cptstudio.help@gmail.com</string>
+    <string name="mua_coin_giai_thich">Liên hệ với chúng tôi nếu bạn có một đơn đặt hàng đặc biệt hoặc nếu bạn có bất kỳ vấn đề với việc mua hàng trong ứng dụng qua email: follow.like.help@gmail.com</string>
     <string name="mua_thanh_cong">Mua thành công! Bạn nhận được %d coins</string>
     <string name="mua_that_bai">Mua bị lỗi. Xin vui lòng liên hệ nếu bạn đã bị trừ tiền</string>
     <string name="tieu_de_phan_hoi">Phản hồi về ứng dụng SubChat - Sub4Sub</string>
@@ -166,7 +166,7 @@
     <string name="like">thả tim</string>
     <string name="kiem_tra_video_da_thich">Kiểm tra tất cả video bạn đã thả tim</string>
     <string name="kiem_tra_video_da_thich_chi_tiet">Nếu chúng tôi phát hiện bạn hủy thả tim, tài khoản của bạn sẽ bị khóa vĩnh viễn.</string>
-    <string name="like_instruction2">Không được hủy thả tim video. Nếu chúng tôi phát hiện bạn gian lận, tài khoản của bạn sẽ bị khóa vĩnh viễn.</string>
+    <string name="huong_dan_thich2">Không được hủy thả tim video. Nếu chúng tôi phát hiện bạn gian lận, tài khoản của bạn sẽ bị khóa vĩnh viễn.</string>
     <string name="gioi_han_luot_thich">Đạt giới hạn lượt thả tim.</string>
     <string name="gioi_han_luot_thich_chi_tiet">Hôm nay bạn đã thả tim %d videos. Hãy tiếp tục vào ngày mai hoặc sử dụng 1 tài khoản khác.</string>
     <string name="like_to_video">Đang kiểm tra...</string>

@@ -10,7 +10,7 @@
     </entry>
     <entry>
         <key>tikfans_package_app</key>
-        <value>tikfans.tikfollow.tik.tok.followers.likes</value>
+        <value>tikfans.tikfollow.followers.likes</value>
     </entry>
     <entry>
         <key>tikfans_purchase_mini_new</key>
@@ -107,5 +107,9 @@
     <entry>
         <key>subchat_package</key>
         <value>cptstudio.sub4sub</value>
+    </entry>
+    <entry>
+        <key>insta_package</key>
+        <value>follow.like.instafollow</value>
     </entry>
 </defaultsMap>

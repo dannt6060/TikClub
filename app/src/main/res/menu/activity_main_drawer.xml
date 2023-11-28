@@ -29,9 +29,14 @@
         <menu>
             <item
                 android:id="@+id/nav_subchat"
-                android:icon="@drawable/ic_faq"
+                android:icon="@drawable/ic_play"
                 android:title="@string/subchat" />
+            <item
+                android:id="@+id/nav_instafollow"
+                android:icon="@drawable/ic_heart"
+                android:title="InstaFollow - Follow &amp; like" />
         </menu>
+
     </item>
 
     <item android:title="Communicate">

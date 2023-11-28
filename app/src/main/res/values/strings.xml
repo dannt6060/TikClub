@@ -31,16 +31,18 @@
     <string name="hoan_thanh">Done</string>
     <string name="dat_hang_chi_tiet">Please make sure your video is live for everybody around the world</string>
 
-    <string name="admob_banner_ad_unit_id">ca-app-pub-9238995121682639/3363956019</string>
-    <string name="abmob_interstitial_ad_unit_id">ca-app-pub-9238995121682639/5606975973</string>
-    <string name="admob_reward_ad_unit_id">ca-app-pub-9238995121682639/1667730961</string>
-    <string name="admob_app_id">ca-app-pub-9238995121682639~7666873548</string>
+    <string name="admob_banner_ad_unit_id" translatable="false">ca-app-pub-6131161498801038/6441092750</string>
+    <string name="abmob_interstitial_ad_unit_id" translatable="false">ca-app-pub-6131161498801038/4409825781</string>
+    <string name="admob_reward_ad_unit_id" translatable="false">ca-app-pub-6131161498801038/1188766079</string>
+    <string name="admob_interstitial_reward_ad_unit_id" translatable="false">ca-app-pub-6131161498801038/7801403741</string>
+    <string name="admob_open_app_ad_unit_id" translatable="false">ca-app-pub-6131161498801038/4250043680</string>
+    <string name="admob_app_id" translatable="false">ca-app-pub-6131161498801038~6821695691</string>
 
     <!--For test-->
-    <!--    <string name="admob_banner_ad_unit_id">ca-app-pub-3940256099942544/6300978111</string>-->
-    <!--    <string name="abmob_interstitial_ad_unit_id">ca-app-pub-3940256099942544/1033173712</string>-->
-    <!--    <string name="admob_reward_ad_unit_id">ca-app-pub-3940256099942544/5224354917</string>-->
-    <!--    <string name="admob_app_id">ca-app-pub-1103821338808048~1869034577</string>-->
+<!--        <string name="admob_banner_ad_unit_id" translatable="false">ca-app-pub-3940256099942544/6300978111</string>-->
+<!--        <string name="abmob_interstitial_ad_unit_id" translatable="false">ca-app-pub-3940256099942544/1033173712</string>-->
+<!--        <string name="admob_reward_ad_unit_id" translatable="false">ca-app-pub-3940256099942544/5224354917</string>-->
+<!--        <string name="admob_app_id" translatable="false">ca-app-pub-1103821338808048~1869034577</string>-->
 
     <string name="doi_tai_video">Loading video</string>
     <string name="tai_ads_loi">Failed to load ads. Please try later</string>
@@ -69,10 +71,10 @@
     <string name="rate_app">Rate app</string>
     <string name="tieu_de_danh_gia_ung_dung">Thank you for using this app</string>
     <string name="danh_gia_ung_dung_chi_tiet">Do this application useful to you? Please give us your feedback. Thank you so much.</string>
-    <string name="mua_coin_giai_thich">Contact us if you have any problems with in app purchase by email cptstudio.help@gmail.com</string>
+    <string name="mua_coin_giai_thich">Contact us if you have any problems with in app purchase by email follow.like.help@gmail.com</string>
     <string name="mua_thanh_cong">Buy success! You got %d coins</string>
     <string name="mua_that_bai">Buy failed, please contact if you lose money.</string>
-    <string name="email_phai_hoi">cptstudio.help@gmail.com</string>
+    <string name="email_phai_hoi">follow.like.help@gmail.com</string>
     <string name="tieu_de_phan_hoi">Feedback about Tikfans application</string>
     <string name="feedback_text">Feedback from %s:</string>
     <string name="invite_failed">Invite failed</string>
@@ -95,7 +97,7 @@
     <string name="kenh_khong_tim_thay">profiles not found</string>
     <string name="no_channel">No profiles</string>
     <string name="no_channel_extra">No profiles now. You can reload or click earn coin</string>
-    <string name="sub_instruction">Follow and like this profiles after watching video to receive coin. We will block your account if you cheating.</string>
+    <string name="sub_instruction">To follow this profile, your username on this app must be same with your username on TT</string>
     <string name="dang_ky">Follow</string>
     <string name="xem_cai_khac">See other</string>
     <string name="progress_subs">%d/%d Subs</string>
@@ -136,7 +138,7 @@
     <string name="subscribe_limitation">follower exceeds the limit</string>
     <string name="subscribe_limitation_daily_extra">Today you have followed %d profiles. Please continue to follow tomorrow or using other account. You can upgrade to a VIP account to get 10 more daily limited followers</string>
     <string name="subscribe_limitation_extra_for_vip">Today you have followed %d profiles. Please continue to follow tomorrow or using other account.</string>
-    <string name="sub_instruction2">DO NOT unfollow any profiles or unlike any videos. we will block your account if you unfollow any profiles or  unlike any videos.</string>
+    <string name="sub_instruction2">Click the Follow button if you are interested in this profile.</string>
     <string name="sub_instruction3">Please both FOLLOW and LIKE to this profiles and video.</string>
     <string name="khong_du_thoi_gian_xem">Not enough watching time.</string>
     <string name="not_enough_watching_time_message_for_sub">You need watch video at least %d second before subscribing this profiles. If not TT will cancel your follower. Please watching video again.</string>
@@ -178,7 +180,7 @@
     <string name="subscribe_failed_message">Follow failed. Please try with other profiles</string>
     <string name="kiem_tra_video_da_thich">Checking all video you liked</string>
     <string name="kiem_tra_video_da_thich_chi_tiet">If we found you unlike any video, we may block your account.</string>
-    <string name="like_instruction2">DO NOT unlike any video. we will block your account if you unlike other video.</string>
+    <string name="huong_dan_thich2">Click the Like button if you are interested in this video.</string>
     <string name="gioi_han_luot_thich">Like exceeds the limit</string>
     <string name="gioi_han_luot_thich_chi_tiet">Today you have liked %d videos. Please continue to like tomorrow or using other account.</string>
     <string name="like_to_video">Checking liked...</string>

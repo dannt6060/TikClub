@@ -27,11 +27,11 @@
 # This rule will properly ProGuard all the model classes in
 # the package com.yourcompany.models. Modify to fit the structure
 # of your app.
--keepclassmembers class tikfans.tikfollow.tik.tok.followers.likes.model.** {
+-keepclassmembers class tikfans.tikfollow.followers.likes.model.** {
   *;
 }
 
--keep class tikfans.tikfollow.tik.tok.followers.likes.model.** {
+-keep class tikfans.tikfollow.followers.likes.model.** {
   *;
 }
 
